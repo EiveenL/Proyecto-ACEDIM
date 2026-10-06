@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>Control de Despacho ACEDIM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f8f9fa;--surface:#fff;--surface2:#f1f5f9;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--line2:#cbd5e1;
+  --navy:#0f172a;--cobalt:#1e40af;--cobalt-bg:#eff6ff;--cobalt-line:#bfdbfe;
+  --g:#15803d;--g-bg:#ecfdf3;--g-line:#86efac;
+  --y:#92400e;--y-bg:#fffbeb;--y-line:#fbbf24;
+  --r:#b91c1c;--r-bg:#fef2f2;--r-line:#fca5a5;--r-strong:#dc2626;
+  --v:#6d28d9;--v-bg:#f5f3ff;
+  --rad:14px;--shadow:0 1px 2px rgba(15,23,42,.05),0 1px 3px rgba(15,23,42,.04);
+  --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- Header ---------- */
+.top{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;box-shadow:0 2px 10px rgba(15,23,42,.25)}
+.bar{display:flex;align-items:center;gap:10px;padding:10px 14px 8px;padding-top:calc(10px + env(safe-area-inset-top))}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--cobalt);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;letter-spacing:.03em;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
+.ttl{flex:1;min-width:0}
+.ttl b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttl span{display:block;font-size:12px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clk{text-align:right}
+.clk>.num{font-size:22px;font-weight:700;letter-spacing:.5px;line-height:1.1}
+.clk small{display:block;font-size:11px;color:#94a3b8;white-space:nowrap}
+.clk small .num{font-size:11px;font-weight:600;color:#fff}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:0 10px 10px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{position:relative;flex:none;min-height:38px;padding:0 14px;border-radius:999px;border:1px solid #1e293b;background:#111c33;color:#cbd5e1;font-weight:600;font-size:14px}
+.tab.on{background:#fff;color:var(--navy);border-color:#fff}
+.tab .bd{position:absolute;top:-5px;right:-4px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--r-strong);color:#fff;font-size:11px;line-height:18px;font-weight:700}
+
+/* ---------- Layout / KPIs ---------- */
+.wrap{max-width:1040px;margin:0 auto;padding:14px 12px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media (min-width:760px){.kpis{grid-template-columns:2fr 1fr 1fr 1fr}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--rad);padding:11px 12px;min-width:0;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi.main{grid-column:1/-1}
+@media (min-width:760px){.kpi.main{grid-column:auto}}
+.kpi h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
+.kpi .v{font-size:25px;font-weight:700;margin-top:2px;color:var(--navy)}
+.kpi .v small{font-size:12px;color:var(--muted);font-weight:500}
+.kpi:not(.main) .v small{display:block;font-family:system-ui,sans-serif}
+.kpi:not(.main) h4{min-height:28px}
+.kpi.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--r-strong)}
+.kpi.alert .v{color:var(--r)}
+.prog{height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;margin-top:7px}
+.prog i{display:block;height:100%;background:var(--g);border-radius:4px;transition:width .4s}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--muted)}
+.toolbar .f{flex:1 1 100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toolbar .f b{color:var(--ink)}
+.btn{min-height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--line2);background:var(--surface);font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px;color:var(--navy)}
+.btn.pri{background:var(--cobalt);border-color:var(--cobalt);color:#fff}
+.btn.sm{min-height:36px;padding:0 11px;font-size:13px}
+.btn:active{transform:scale(.98)}
+.btn[disabled]{opacity:.6}
+
+/* ---------- Secciones ---------- */
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:18px 2px 9px}
+.sec-h h2{font-size:18px;color:var(--navy);letter-spacing:-.01em}
+.sec-h span{font-size:12.5px;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:var(--shadow)}
+.toprow{display:grid;grid-template-columns:2.2fr 1fr;gap:8px}
+.th{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 6px}
+.th div{text-align:center;font-size:11px;font-weight:700;color:var(--cobalt);text-transform:uppercase;letter-spacing:.05em;background:var(--cobalt-bg);border-radius:8px;padding:5px 2px}
+.th div small{display:block;font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gap{height:10px}
+
+/* ---------- Cajas de espacio ---------- */
+.box{position:relative;text-align:left;width:100%;min-height:92px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);padding:8px 9px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.box .code{font-size:19px;font-weight:800;line-height:1}
+.box .lbl{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.box .met{font-size:12.5px;font-weight:600}
+.box .ml{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
+.box .more{font-size:11px;color:var(--muted)}
+.box .flag{position:absolute;top:6px;right:6px;font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:6px;background:var(--r-strong);color:#fff;letter-spacing:.03em}
+.box .exp{display:block;margin:3px 0 2px;padding:5px 7px;border-radius:7px;background:var(--r-strong);color:#fff;font-size:11.5px;font-weight:800;line-height:1.25;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.5)}50%{box-shadow:0 0 0 5px rgba(220,38,38,0)}}
+@media (prefers-reduced-motion:reduce){.box .exp,.aviso{animation:none}}
+.k-A .code,.k-T .code,.k-D .code{color:var(--g)}
+.k-U .code{color:var(--r-strong)}
+.k-M .code{color:var(--v)}
+.box.s-empty{border-style:dashed;background:#fcfcfd}
+.box.s-empty .met{color:var(--muted);font-weight:500}
+.box.s-pend{background:var(--y-bg);border-color:var(--y-line)}
+.box.s-sent{background:var(--g-bg);border-color:var(--g-line)}
+.box.s-urg{background:var(--r-bg);border-color:var(--r-line)}
+.box.s-noef{background:var(--r-bg);border-color:var(--r-strong);box-shadow:0 0 0 1.5px var(--r-strong) inset}
+.box.k-U.s-empty{border-color:var(--r-line)}
+.box:active{transform:scale(.98)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px;background:var(--y-line)}
+.dot.sent{background:var(--g)}.dot.noef{background:var(--r-strong)}.dot.urg{background:#f87171}
+
+/* ---------- Nave 5 consolidador ---------- */
+.mod{width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:10px;display:block;box-shadow:var(--shadow)}
+.mod-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.mod-h b{font-size:16px;color:var(--navy)}
+.mod-h span{font-size:12.5px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--surface2);border:1px solid var(--line)}
+.chip.r{background:var(--r-bg);border-color:var(--r-line);color:var(--r)}
+.chip.g{background:var(--g-bg);border-color:var(--g-line);color:var(--g)}
+.chip.y{background:var(--y-bg);border-color:var(--y-line);color:var(--y)}
+.chip.b{background:var(--cobalt-bg);border-color:var(--cobalt-line);color:var(--cobalt)}
+.chip.k{background:var(--navy);border-color:var(--navy);color:#fff}
+.cell{border-radius:10px;border:1.5px solid var(--line);padding:8px;min-height:64px}
+.cell b{display:block;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cell .num{font-size:15px;font-weight:700}
+.cell small{font-size:11.5px;color:var(--muted)}
+.cell.s-pend{background:var(--y-bg);border-color:var(--y-line)}
+.cell.s-sent{background:var(--g-bg);border-color:var(--g-line)}
+.cell.s-noef{background:var(--r-bg);border-color:var(--r-strong)}
+.cell.s-urg{background:var(--r-bg);border-color:var(--r-line)}
+
+/* ---------- Tarjetas de carga ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--y-line);border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow)}
+.card.st-sent{border-left-color:var(--g);background:var(--g-bg)}
+.card.st-noef{border-left-color:var(--r-strong);background:var(--r-bg)}
+.card.is-urg.st-pend{border-left-color:#f87171}
+.pills{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:5px}
+.pill{font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:var(--surface2);border:1px solid var(--line);white-space:nowrap}
+.pill.r{background:var(--r-strong);border-color:var(--r-strong);color:#fff}
+.pill.ru{background:var(--r-bg);border-color:var(--r-line);color:var(--r)}
+.pill.g{background:var(--g);border-color:var(--g);color:#fff}
+.pill.v{background:var(--v-bg);color:var(--v);border-color:transparent}
+.pill.rank{background:var(--navy);color:#fff;border-color:var(--navy)}
+.aviso{margin:2px 0 8px;padding:9px 11px;border-radius:9px;background:var(--r-strong);color:#fff;font-weight:800;font-size:14.5px;animation:pulse 1.6s ease-in-out infinite}
+.aviso small{display:block;font-weight:600;font-size:12px;opacity:.95;margin-top:2px}
+.c-cli{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
+.c-pro{font-size:15px;font-weight:700;line-height:1.25;color:var(--navy)}
+.c-meta{font-size:12.5px;color:var(--muted);margin-top:4px}
+.c-meta b{color:var(--ink);font-weight:600}
+.c-act{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+.c-act .tn{font-size:18px;font-weight:800;margin-right:auto;color:var(--navy)}
+.mv{min-height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--surface);padding:0 8px;font-size:13px;max-width:150px}
+.chk{min-height:44px;padding:0 14px;border-radius:10px;border:2px solid var(--g);background:var(--surface);color:var(--g);font-weight:700;font-size:14px}
+.chk.on{background:var(--g);color:#fff}
+
+/* ---------- Lista / búsqueda ---------- */
+.ctrl{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.search{width:100%;min-height:44px;border-radius:10px;border:1px solid var(--line2);background:var(--surface);padding:0 12px}
+.search:focus{outline:2px solid var(--cobalt);outline-offset:1px}
+.flt{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.flt button{flex:none;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surface);font-size:13px;font-weight:600}
+.flt button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+/* ---------- Explanada ---------- */
+.x-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.x-meta{font-size:12.5px;color:var(--muted);line-height:1.5}
+.x-meta b{color:var(--navy)}
+.x-st{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;margin-left:4px}
+.x-st.ok{background:var(--g-bg);color:var(--g)}.x-st.err{background:var(--r-bg);color:var(--r)}.x-st.ld{background:var(--cobalt-bg);color:var(--cobalt)}
+.x-btns{display:flex;gap:8px;flex-wrap:wrap}
+.x-pend{margin-top:10px;border:1px solid var(--r-line);background:var(--r-bg);border-radius:12px;padding:10px}
+.x-pend summary{font-size:13px;font-weight:800;color:var(--r);cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:8px}
+.x-pend summary::-webkit-details-marker{display:none}
+.x-pend summary::after{content:'Ver ▾';font-weight:700;white-space:nowrap}
+.x-pend[open] summary::after{content:'Ocultar ▴'}
+.x-pend ul{margin-top:6px}
+.x-pend li{list-style:none;font-size:13px;padding:5px 0;border-top:1px solid rgba(220,38,38,.15)}
+.x-pend li:first-of-type{border-top:0}
+.x-pend li b{color:var(--navy)}
+.x-pend li span{color:var(--muted)}
+.xscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:10px;border-radius:12px}
+.xgrid{display:grid;gap:4px;width:100%}
+.xc{border-radius:8px;min-height:62px;padding:6px 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px;font-size:11.5px;font-weight:800;line-height:1.2;text-transform:uppercase;letter-spacing:.01em;border:1px solid var(--line2);background:var(--surface);color:var(--navy);min-width:0;overflow-wrap:break-word;hyphens:auto;-webkit-hyphens:auto}
+.xc.xh{min-height:30px;background:var(--navy);color:#fff;border-color:var(--navy);font-size:11px;font-weight:700;letter-spacing:.04em}
+.xc.xfl,.xc.xsd{position:sticky;z-index:2;padding:4px 0;font-size:10px;font-weight:800;letter-spacing:.08em;background:var(--cobalt-bg);color:var(--cobalt);border-color:var(--cobalt-line)}
+.xc.xfl{left:0;background:var(--cobalt);color:#fff;border-color:var(--cobalt)}
+.xc.xsd{left:32px}
+.xc.xfl span,.xc.xsd span{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap}
+.xc.xcorner{position:sticky;left:0;z-index:3}
+.xc.x-vacio{background:#f8fafc;border-style:dashed;color:#94a3b8;font-weight:700}
+.xc.x-empty{background:#fbfcfd;border-style:dashed;border-color:var(--line);color:#cbd5e1;font-weight:600}
+.xc.x-bloq{background:var(--navy);border-color:var(--navy);color:#fff}
+.xc.x-anulado{background:repeating-linear-gradient(135deg,#334155 0 10px,#3b4a5f 10px 20px);border-color:#334155;color:#fff;letter-spacing:.08em}
+.xc.xwarn{box-shadow:0 0 0 2px var(--r-strong);border-color:var(--r-strong)}
+.xc .xk{font-size:10px;font-weight:700;text-transform:none;letter-spacing:0;padding:1px 6px;border-radius:5px;background:var(--cobalt-bg);color:var(--cobalt)}
+.xc .xk.r{background:var(--r-strong);color:#fff}
+.xgrid.searching .xc.x-ocup:not(.xhit),.xgrid.searching .xc.x-bloq:not(.xhit),.xgrid.searching .xc.x-anulado:not(.xhit){opacity:.3}
+.xc.xhit{box-shadow:0 0 0 2px var(--cobalt)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:12px;color:var(--muted)}
+.lg{display:inline-flex;align-items:center;gap:5px}
+.lg i{width:14px;height:14px;border-radius:4px;border:1px solid var(--line2);display:inline-block}
+
+/* ---------- Vacío / hoja / toast ---------- */
+.empty{background:var(--surface);border:1.5px dashed var(--line2);border-radius:16px;padding:28px 18px;text-align:center;margin-top:12px}
+.empty h3{font-size:18px;margin-bottom:6px;color:var(--navy)}
+.empty p{color:var(--muted);font-size:14px;margin-bottom:14px}
+.empty .legend{justify-content:center}
+.sheet{position:fixed;inset:0;z-index:50}
+.sheet[hidden]{display:none}
+.sheet-bg{position:absolute;inset:0;background:rgba(15,23,42,.5)}
+.sheet-panel{position:absolute;left:0;right:0;bottom:0;max-height:88vh;overflow-y:auto;background:var(--bg);border-radius:18px 18px 0 0;padding:8px 12px calc(16px + env(safe-area-inset-bottom));max-width:760px;margin:0 auto;animation:up .2s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--line2);margin:4px auto 10px}
+.sh-h{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.sh-h div{flex:1}
+.sh-h b{font-size:17px;display:block;color:var(--navy)}
+.sh-h span{font-size:12.5px;color:var(--muted)}
+.x{width:40px;height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--surface);font-size:18px;flex:none}
+.muted{color:var(--muted);font-size:13px;text-align:center;padding:14px}
+#toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:60;max-width:92vw;opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:0 6px 20px rgba(15,23,42,.25)}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="bar">
+    <div class="logo">AD</div>
+    <div class="ttl"><b>Despacho ACEDIM</b><span id="fecha">Control de naves</span></div>
+    <div class="clk"><div class="num" id="clock">--:--:--</div><small>Última actualización: <span class="num" id="upd">--:--:--</span></small></div>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+
+<main class="wrap">
+  <section class="kpis" id="kpis"></section>
+  <div class="toolbar">
+    <span class="f" id="fileinfo">Sin archivo cargado</span>
+    <button class="btn pri sm" data-act="cloudsync" style="background:#0f9d58;border-color:#0f9d58;color:white">☁ Nube</button>
+    <label class="btn pri sm" for="file">⬆ Excel</label>
+    <button class="btn sm" data-act="xsync">⟳ Explanada</button>
+    <button class="btn sm" data-act="export">⬇ Exportar</button>
+    <button class="btn sm" data-act="reset">Limpiar</button>
+    <input type="file" id="file" accept=".xlsx,.xls,.xlsm,.csv" hidden>
+    <input type="file" id="xfile" accept=".csv,text/csv" hidden>
+  </div>
+  <div id="view"></div>
+</main>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-bg" data-act="close"></div>
+  <div class="sheet-panel"><div class="grab"></div><div id="sheetBody"></div></div>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ================= CONFIGURACIÓN ================= */
+const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbz0lVOhv-eENrN2jaT0bVaceP3aQsvzwGIczH3b9z5G2LfeQVSigckZj3ZHhjYBhNs/exec';
+
+/* ================= NUBE ================= */
+async function loadFromCloud() {
+  try{
+    toast('⏳ Conectando a Google Sheets...');
+    const res = await fetch(GOOGLE_API_URL + '?sheet=Despachos');
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    const rows = data.map(r => ({
+      prod: toDate(r['F.Prev. Prod.']), carga: toDate(r['F. Prevista Carga']),
+      obra: String(r['Obra']||'').trim(), nave: parseInt(r['Nave Carga'])||0,
+      dt: String(r['Unidad / DT']||'').trim()||'Sin DT', depto: String(r['Departamento']||'').trim(),
+      crit: String(r['Criticidad']||'').trim(), desp: String(r['Despacho']||'').trim(),
+      estado: String(r['Estado']||'').trim(), peso: num(r['Peso (tn)']),
+      pzs: num(r['Cant. Piezas']), tipo: String(r['Tipo Producto']||'').trim()
+    })).filter(r => r.obra);
+    if(!rows.length) throw new Error('Pestaña vacía o sin formato');
+    const cargas = group(rows), keys = new Set(cargas.map(c=>c.key));
+    for(const k in S.sent) if(!keys.has(k)) delete S.sent[k];
+    for(const k in S.moves) if(!keys.has(k)) delete S.moves[k];
+    S.cargas=cargas; S.file="☁ Google Sheets"; touch(); save(); render();
+    toast(`✅ Nube: ${rows.length} despachos · ${cargas.length} obras`);
+  }catch(e){ toast('Error Nube: '+e.message); }
+}
+async function updateCloud(dt, cambios) {
+  try { fetch(GOOGLE_API_URL, { method: "POST", body: JSON.stringify({ sheet: "Despachos", idColumn: "Unidad / DT", idValue: dt, updates: cambios }) }); } catch(e){}
+}
+
+const LIMITE_MIN = 19 * 60;                 // Límite de efectividad: 7:00 PM
+const FIN_MANANA_MIN = 12 * 60;             // Turno Mañana 00:00–12:00 · Tarde 12:01–23:59
+const SENT_RE = /cargad|sali|despachad|entregad|enviad/i; // Estados del Excel que ya cuentan como enviados
+const EXP_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQLIM1tBXad0LO-I9NpCRDqGmeIWFYygSYNs_0v1P2jBB3p44TZFVv-4NUhXlm7E-MA8sT2MLcCgA_n/pub?output=csv';
+const EXP_AUTO_MIN = 5;                     // Re-sincroniza la Explanada cada 5 min
+const EXP_BLOQ = ['POR SEPARAR','POR SERPARAR','PODER JUDICIAL','RESERVADO','BLOQUEADO','NO USAR']; // Celdas bloqueadas/reservadas
+const LS = 'acedim_despacho_v1', LSX = 'acedim_explanada_v1';
+const COLS = {
+  prod:['fprevprod','fprevistaprod','fechaprevistaproduccion','fprevistaproduccion'],
+  carga:['fprevistacarga','fprevcarga','fechaprevistacarga'],
+  obra:['obra'], nave:['navecarga','nave'], dt:['unidaddt','dt','unidad'],
+  depto:['departamento','depto'], crit:['criticidad'], desp:['despacho'], estado:['estado'],
+  peso:['pesotn','peso','toneladas','tn'], pzs:['cantpiezas','piezas','cantidadpiezas'], tipo:['tipoproducto','tipo']
+};
+const SLOTS_NAVE = ['A','M','U1','U2','T1-1','T2-1','T1-2','T2-2','T1-3','T2-3'];
+const GENERIC = new Set(['puente','puentes','edificio','edif','proyecto','obra','obras','consorcio','condominio','acedim','inmobiliaria','grupo','abril','torre','residencial','comercial','comercio','oficinas','etapa','family','familia','park','place','plaza','tower','planta']);
+
+/* ================= ESTADO ================= */
+const S = {file:'', loadedAt:null, cargas:[], sent:{}, moves:{}, tab:'1', filter:'pend', q:'', xq:'', sheet:null};
+const X = {text:'', source:'', at:null, data:null, loading:false, error:''};
+let lastSig = '', XM = {byCarga:new Map(), byCell:new Map()};
+
+/* ================= UTILIDADES ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const hms = d => pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+const hm = d => pad(d.getHours())+':'+pad(d.getMinutes());
+const fdt = d => d ? pad(d.getDate())+'/'+pad(d.getMonth()+1)+' '+hm(d) : '—';
+const sod = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const tm = d => d ? d.getTime() : 9e15;
+const f1 = x => (Math.round(x*10)/10).toLocaleString('es-PE',{minimumFractionDigits:1,maximumFractionDigits:1});
+const f2 = x => x.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const deacc = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const norm = s => deacc(s).replace(/[^a-z0-9]/g,'');
+const toks = s => deacc(s).split(/[^a-z0-9]+/).filter(t=>t.length>=3);
+const turno = d => (d.getHours()*60 + d.getMinutes()) <= FIN_MANANA_MIN ? 1 : 2;
+function num(v){ if(typeof v==='number') return v; let s=String(v??'').trim(); if(!s) return 0;
+  if(s.includes(',') && !s.includes('.')) s=s.replace(',','.'); else s=s.replace(/,/g,''); const n=parseFloat(s); return isNaN(n)?0:n; }
+function toDate(v){
+  if(v===''||v==null) return null;
+  if(v instanceof Date) return isNaN(v) ? null : v;
+  if(typeof v==='number'){ if(v<1000) return null; const d=Math.floor(v); const dt=new Date(1899,11,30); dt.setDate(dt.getDate()+d); dt.setHours(0,0,0,Math.round((v-d)*864e5)); return dt; }
+  const s=String(v).trim(); let m;
+  if(m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})(?:[ T,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/)){ let y=+m[3]; if(y<100) y+=2000; return new Date(y,m[2]-1,+m[1],+(m[4]||0),+(m[5]||0),+(m[6]||0)); }
+  if(m=s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/)) return new Date(+m[1],m[2]-1,+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0));
+  const n=num(s); return n>1000 ? toDate(n) : null;
+}
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('on'),2800); }
+
+/* ================= PERSISTENCIA ================= */
+function save(){ try{ localStorage.setItem(LS, JSON.stringify({file:S.file, loadedAt:S.loadedAt, cargas:S.cargas, sent:S.sent, moves:S.moves, tab:S.tab})); }catch(e){} }
+function saveX(){ try{ localStorage.setItem(LSX, JSON.stringify({text:X.text, source:X.source, at:X.at})); }catch(e){} }
+function load(){
+  try{ const j=localStorage.getItem(LS); if(j){
+    const o=JSON.parse(j,(k,v)=>(k==='prod'||k==='carga')&&v ? new Date(v) : v);
+    Object.assign(S,o); S.loadedAt = o.loadedAt ? new Date(o.loadedAt) : null; } }catch(e){}
+  try{ const j=localStorage.getItem(LSX); if(j){ const o=JSON.parse(j);
+    if(o.text){ X.text=o.text; X.source=o.source; X.at=o.at?new Date(o.at):null; X.data=parseExplanada(parseCSV(o.text)); } } }catch(e){}
+}
+function touch(){ S.loadedAt = new Date(); }
+
+/* ================= LECTURA DEL PLAN (EXCEL) ================= */
+function parseWB(wb){
+  const names=[...wb.SheetNames].sort((a,b)=>(/datos/i.test(b)?1:0)-(/datos/i.test(a)?1:0));
+  for(const n of names){
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''});
+    for(let i=0;i<Math.min(aoa.length,25);i++){
+      const h=aoa[i].map(norm); if(!h.includes('obra')) continue;
+      const idx={}; for(const [f,cands] of Object.entries(COLS)){ idx[f]=-1; for(const c of cands){ const j=h.indexOf(c); if(j>=0){ idx[f]=j; break; } } }
+      if(idx.peso<0) continue;
+      const out=[];
+      for(let r=i+1;r<aoa.length;r++){
+        const row=aoa[r], g=f=>idx[f]>=0 ? row[idx[f]] : '';
+        const obra=String(g('obra')).trim(); if(!obra) continue;
+        out.push({prod:toDate(g('prod')), carga:toDate(g('carga')), obra, nave:parseInt(g('nave'))||0,
+          dt:String(g('dt')).trim()||'Sin DT', depto:String(g('depto')).trim(), crit:String(g('crit')).trim(),
+          desp:String(g('desp')).trim(), estado:String(g('estado')).trim(), peso:num(g('peso')), pzs:num(g('pzs')), tipo:String(g('tipo')).trim()});
+      }
+      return out;
+    }
+  }
+  return [];
+}
+function group(rows){
+  const m=new Map();
+  for(const r of rows){
+    const key=r.nave+'|'+r.dt+'|'+r.obra; let c=m.get(key);
+    if(!c){ const p=r.obra.split('/');
+      c={key, nave:r.nave, dt:r.dt, obra:r.obra, client:p.length>1?p[0].trim():'', proj:(p.length>1?p.slice(1).join('/'):p[0]).trim(),
+         depto:r.depto, crits:[], estados:[], tipos:[], rows:[], prod:null, carga:null, peso:0, pzs:0};
+      m.set(key,c); }
+    c.rows.push(r); c.peso+=r.peso; c.pzs+=r.pzs;
+    for(const [arr,v] of [[c.crits,r.crit],[c.estados,r.estado],[c.tipos,r.tipo]]) if(v && !arr.includes(v)) arr.push(v);
+    if(r.prod && (!c.prod || r.prod<c.prod)) c.prod=r.prod;
+    if(r.carga && (!c.carga || r.carga<c.carga)) c.carga=r.carga;
+  }
+  return [...m.values()].map(c=>Object.assign(c,{
+    peso:Math.round(c.peso*1000)/1000,
+    urg:c.crits.some(x=>/urg/i.test(x)),
+    autoSent:c.rows.every(r=>SENT_RE.test(r.estado)),
+    despunte:c.nave===4 || c.tipos.some(t=>/despunt/i.test(t)),
+    menudeo:c.tipos.some(t=>/menud/i.test(t))
+  }));
+}
+async function handleFile(f){
+  if(!f) return;
+  if(!window.XLSX){ toast('No se pudo cargar SheetJS: revisa la conexión a internet'); return; }
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    const rows=parseWB(wb);
+    if(!rows.length) throw new Error('no se encontraron las columnas "Obra" y "Peso (tn)"');
+    const cargas=group(rows), keys=new Set(cargas.map(c=>c.key));
+    for(const k in S.sent) if(!keys.has(k)) delete S.sent[k];   // conserva checks de obras que siguen en el plan
+    for(const k in S.moves) if(!keys.has(k)) delete S.moves[k];
+    S.cargas=cargas; S.file=f.name; touch(); save(); render();
+    toast(`${rows.length} despachos · ${cargas.length} obras cargadas`);
+  }catch(e){ toast('Error al leer el archivo: '+e.message); }
+}
+
+/* ================= EXPLANADA (CSV de Google Sheets) ================= */
+function parseCSV(t){
+  t=String(t).replace(/^﻿/,''); const rows=[]; let row=[], f='', q=false;
+  for(let i=0;i<t.length;i++){ const ch=t[i];
+    if(q){ if(ch==='"'){ if(t[i+1]==='"'){ f+='"'; i++; } else q=false; } else f+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===','){ row.push(f); f=''; }
+    else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&t[i+1]==='\n') i++; row.push(f); rows.push(row); row=[]; f=''; }
+    else f+=ch; }
+  if(f!==''||row.length){ row.push(f); rows.push(row); }
+  return rows.map(r=>r.map(c=>c.replace(/\s+/g,' ').trim()));
+}
+function cellType(t){
+  const n=norm(t); if(!n) return 'empty';
+  if(/^vacio/.test(n)) return 'vacio';
+  if(/anulad/.test(n)) return 'anulado';
+  if(EXP_BLOQ.some(k=>n.includes(norm(k)))) return 'bloq';
+  return 'ocup';
+}
+function parseExplanada(rows){
+  const meta={};
+  for(const r of rows) for(const c of r){
+    if(!meta.fecha && /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(c)) meta.fecha=c;
+    if(!meta.act && /actualizad/i.test(c)) meta.act=c.replace(/actualizad[oa]\s*:?/i,'').trim();
+    if(!meta.titulo && /layout/i.test(c)) meta.titulo=c;
+  }
+  const posRe=/\(\s*\d+\s*[.,]\s*\d+\s*\)|^A\d*\s*\(/i, sideRe=/^(oficina|playa)$/i, filaRe=/fila\s*(\d+)/i;
+  let hi=-1, posCols=[];
+  for(let i=0;i<rows.length;i++){ const idx=rows[i].map((c,j)=>posRe.test(c)?j:-1).filter(j=>j>=0); if(idx.length>=2){ hi=i; posCols=idx; break; } }
+  const filas=[]; let cur=null, maxSide=-1;
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i], si=r.findIndex(c=>sideRe.test(c)), fi=r.findIndex((c,j)=>filaRe.test(c) && (si<0||j<si) && !posCols.includes(j));
+    if(fi>=0){ cur={name:'FILA '+r[fi].match(filaRe)[1], sides:[]}; filas.push(cur); }
+    if(si<0) continue;
+    if(!cur || cur.sides.length>=2){ cur={name:'FILA '+(filas.length+1), sides:[]}; filas.push(cur); }
+    maxSide=Math.max(maxSide,si);
+    cur.sides.push({side:/^ofi/i.test(r[si])?'OFICINA':'PLAYA', vals:r});
+  }
+  for(let i=filas.length-1;i>=0;i--) if(!filas[i].sides.length) filas.splice(i,1);
+  if(!filas.length) return null;
+  let labels;
+  if(posCols.length) labels=posCols.map(j=>rows[hi][j]);
+  else { const set=new Set(); filas.forEach(f=>f.sides.forEach(s=>s.vals.forEach((v,j)=>{ if(j>maxSide && v) set.add(j); })));
+    posCols=[...set].sort((a,b)=>a-b); labels=posCols.map((_,k)=>'A'+(k+1)); }
+  const cols=labels.map(l=>({label:l}));
+  for(const f of filas){
+    f.sides.forEach(s=>{ s.cells=posCols.map(j=>{ const text=s.vals[j]||''; return {text, type:cellType(text)}; }); delete s.vals; });
+    if(f.sides.length===2) f.sides[0].cells.forEach((top,ci)=>{ const bot=f.sides[1].cells[ci];
+      if(bot.type==='empty' && (top.type==='anulado'||top.type==='bloq')){ top.span=2; bot.skip=true; } });
+  }
+  return {meta, cols, filas};
+}
+function loadExplanadaText(text, source){
+  const data=parseExplanada(parseCSV(text));
+  if(!data) throw new Error('el CSV no tiene filas OFICINA / PLAYA');
+  Object.assign(X,{text, source, at:new Date(), data, error:''}); saveX(); touch();
+}
+async function syncExplanada(manual){
+  if(X.loading) return; X.loading=true; if(S.tab==='X') render();
+  try{
+    const r=await fetch(EXP_URL+'&_='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const txt=await r.text();
+    if(/<html/i.test(txt.slice(0,300))) throw new Error('la hoja no está publicada como CSV');
+    loadExplanadaText(txt,'Google Sheets');
+    if(manual) toast('Explanada sincronizada · '+hms(X.at));
+  }catch(e){ X.error = navigator.onLine===false ? 'Sin conexión a internet' : 'No se pudo sincronizar ('+e.message+')'; if(manual) toast(X.error); }
+  X.loading=false; render();
+}
+function cellMatches(text, c){
+  const a=norm(text); if(a.length<4) return false;
+  if(norm(c.obra).includes(a)) return true;
+  const ct=toks(text).filter(t=>t.length>=4 && !GENERIC.has(t)); if(!ct.length) return false;
+  const ot=new Set(toks(c.obra)), m=ct.filter(t=>ot.has(t)).length;
+  return m>=1 && m/ct.length>=0.5;
+}
+function linkExplanada(){
+  XM={byCarga:new Map(), byCell:new Map()}; if(!X.data) return;
+  X.data.filas.forEach((f,fi)=>f.sides.forEach((s,si)=>s.cells.forEach((cell,ci)=>{
+    if(cell.type!=='ocup') return;
+    const loc=`${f.name} · ${s.side==='OFICINA'?'Oficina':'Playa'} · ${X.data.cols[ci].label}`, id=fi+'-'+si+'-'+ci, hits=[];
+    for(const c of S.cargas) if(cellMatches(cell.text,c)){ hits.push(c); if(!XM.byCarga.has(c.key)) XM.byCarga.set(c.key,[]); XM.byCarga.get(c.key).push(loc); }
+    XM.byCell.set(id,hits);
+  })));
+}
+
+/* ================= LÓGICA DE ESPACIOS Y ESTADOS ================= */
+function isSent(c){ return (c.key in S.sent) ? !!S.sent[c.key] : c.autoSent; }
+function status(c, now){
+  if(isSent(c)) return 'sent';
+  if(!c.ref) return 'pend';
+  const t0=sod(now).getTime(), r=sod(c.ref).getTime();
+  if(r<t0) return 'noef';
+  if(r===t0 && now.getHours()*60+now.getMinutes() >= LIMITE_MIN) return 'noef';
+  return 'pend';
+}
+function assign(now){
+  const t0=sod(now).getTime(), t1=t0+864e5, q={};
+  for(const c of S.cargas){
+    c.ref=c.carga||c.prod; c.why=''; c.slot=null; c.from=''; c.explanada=false;
+    const day=c.ref ? sod(c.ref).getTime() : null, tur=c.ref ? turno(c.ref) : 1;
+    if(c.despunte){ c.slot='D'; continue; }
+    if(![1,2,3].includes(c.nave)){ c.why='Nave no válida'; continue; }
+    if(S.moves[c.key]){ c.slot=S.moves[c.key]; c.why='Reubicada manualmente'; continue; }
+    if(c.menudeo){ c.slot='M'; continue; }
+    if(day!==null && day<t0){ c.slot='A'; c.why='Atrasada (día anterior)'; continue; }
+    if(day!==null && day>=t1){ c.slot='A'; c.why='Próximos días'; continue; }
+    if(c.urg){ c.slot='U'+tur; continue; }
+    if(!c.carga){ c.slot='A'; c.why='Sin horario de carga'; continue; }
+    (q[c.nave+'|'+tur] ??= []).push(c);
+  }
+  // Espacios 1-2-3 por turno: un DT por espacio, en orden de hora de carga prevista
+  for(const [k,list] of Object.entries(q)){
+    const tur=k.split('|')[1], dts=new Map();
+    for(const c of list){ const d=dts.get(c.dt);
+      if(!d) dts.set(c.dt,{t:c.carga.getTime(),p:tm(c.prod),items:[c]});
+      else { d.items.push(c); d.t=Math.min(d.t,c.carga.getTime()); d.p=Math.min(d.p,tm(c.prod)); } }
+    [...dts.values()].sort((a,b)=>a.t-b.t||a.p-b.p).forEach((d,i)=>{ const s='T'+tur+'-'+(i<3?i+1:'C'); d.items.forEach(c=>c.slot=s); });
+  }
+  // Regla NO EFECTIVO: pasada la hora límite sin enviar → se reubica en A con aviso "Enviar a Explanada".
+  // Excepciones: Menudeo (M) se queda en M sin aviso; Despuntes (D) se quedan en Nave 4.
+  for(const c of S.cargas){
+    if(!c.slot || c.slot==='M' || c.slot==='D' || status(c,now)!=='noef') continue;
+    if(c.slot!=='A'){ c.from=c.slot; c.slot='A'; }
+    c.explanada=true; c.why = c.from ? 'No efectivo · venía de '+c.from : (c.why ? c.why+' · No efectivo' : 'No efectivo');
+  }
+}
+const prio = (a,b) => tm(a.prod)-tm(b.prod) || a.nave-b.nave || tm(a.carga)-tm(b.carga) || a.obra.localeCompare(b.obra);
+const bySlot = (a,b) => (b.explanada-a.explanada) || prio(a,b);
+function slotName(s){
+  if(s==='A') return 'Espacio Libre / Atrasadas';
+  if(s==='M') return 'Menudeo provisional';
+  if(s==='D') return 'Despuntes';
+  if(!s) return 'Sin espacio';
+  if(s[0]==='U') return 'Urgencias · Turno '+(s[1]==='1'?'Mañana':'Tarde');
+  const [t,i]=s.split('-'); return (i==='C'?'Cola de DT':'Espacio DT '+i)+' · Turno '+(t==='T1'?'Mañana':'Tarde');
+}
+function summary(items, now){
+  let tot=0, sent=0, noef=0, urgP=0, pend=0;
+  for(const c of items){ const st=status(c,now); tot+=c.peso;
+    if(st==='sent') sent+=c.peso; else { pend++; if(st==='noef') noef++; if(c.urg) urgP++; } }
+  const state = !items.length ? 'empty' : noef ? 'noef' : !pend ? 'sent' : urgP ? 'urg' : 'pend';
+  return {n:items.length, tot, sent, noef, urgP, pend, state};
+}
+function xCounts(){
+  const k={ocup:0,vacio:0,bloq:0,anulado:0};
+  if(X.data) X.data.filas.forEach(f=>f.sides.forEach(s=>s.cells.forEach(c=>{ if(c.skip) return; k[c.type==='empty'?'vacio':c.type]++; })));
+  return k;
+}
+
+/* ================= RENDER ================= */
+function render(){
+  const now=new Date(); assign(now); linkExplanada();
+  $('#upd').textContent = S.loadedAt ? hms(S.loadedAt) : '--:--:--';
+  renderKPIs(now); renderTabs(now);
+  const v=$('#view');
+  if(S.tab==='X'){ v.innerHTML=explanadaHTML(now); renderXGrid(); }
+  else if(!S.cargas.length) v.innerHTML=emptyHTML();
+  else if(S.tab==='5') v.innerHTML=nave5HTML(now);
+  else if(S.tab==='4') v.innerHTML=nave4HTML(now);
+  else if(S.tab==='L'){ v.innerHTML=listaShellHTML(); renderLista(now); }
+  else v.innerHTML=naveHTML(+S.tab, now);
+  renderSheet(now);
+  lastSig=sig(now);
+}
+function sig(now){ return sod(now).getTime()+'|'+(now.getHours()*60+now.getMinutes()>=LIMITE_MIN); }
+
+function renderKPIs(now){
+  const all=summary(S.cargas, now);
+  const urgT=S.cargas.filter(c=>c.urg).length;
+  const enA=S.cargas.filter(c=>c.slot==='A' && !isSent(c)).length;
+  const pct=all.tot ? all.sent/all.tot*100 : 0;
+  $('#kpis').innerHTML=`
+    <div class="kpi main"><h4>Toneladas enviadas vs programadas</h4>
+      <div class="v num">${f1(all.sent)} <small>/ ${f1(all.tot)} tn · ${pct.toFixed(0)}%</small></div>
+      <div class="prog"><i style="width:${pct.toFixed(1)}%"></i></div></div>
+    <div class="kpi ${all.urgP?'alert':''}"><h4>Urgencias (U)</h4><div class="v num">${all.urgP} <small>pend. de ${urgT}</small></div></div>
+    <div class="kpi"><h4>En Libre (A)</h4><div class="v num">${enA} <small>pend.</small></div></div>
+    <div class="kpi ${all.noef?'alert':''}"><h4>No efectivas</h4><div class="v num">${all.noef} <small>${now.getHours()*60+now.getMinutes()>=LIMITE_MIN?'tras 19:00':'límite 19:00'}</small></div></div>`;
+  $('#fileinfo').innerHTML = S.file
+    ? `<b>${esc(S.file)}</b> · Total archivo <span class="num">${f2(all.tot)}</span> tn · ${S.cargas.reduce((a,c)=>a+c.rows.length,0)} desp. · ${S.cargas.length} obras`
+    : 'Sin plan cargado';
+}
+function renderTabs(now){
+  const t=[['1','Nave 1'],['2','Nave 2'],['3','Nave 3'],['4','Nave 4 · D'],['5','Nave 5 · Resumen'],['X','Explanada'],['L','Lista priorizada']];
+  $('#tabs').innerHTML=t.map(([k,l])=>{
+    let n=0;
+    if(k==='4') n=S.cargas.filter(c=>c.slot==='D' && status(c,now)==='noef').length;
+    else if(['1','2','3'].includes(k)) n=S.cargas.filter(c=>c.nave==+k && c.slot && c.slot!=='D' && status(c,now)==='noef').length;
+    else if(k==='X') n=S.cargas.filter(c=>c.explanada).length;
+    return `<button class="tab ${S.tab===k?'on':''}" data-act="tab" data-k="${k}">${l}${n?`<span class="bd">${n}</span>`:''}</button>`;
+  }).join('');
+}
+function emptyHTML(){
+  return `<div class="empty"><h3>Carga el Plan Integral del día</h3>
+    <p>Sube el Excel (.xlsx / .xls) con las columnas F.Prev. Prod., F. Prevista Carga, Obra, Nave Carga, Unidad / DT, Criticidad, Despacho, Estado y Peso (tn).</p>
+    <label class="btn pri" for="file">⬆ Seleccionar archivo</label>
+    <div class="legend"><span class="lg"><i class="dot sent"></i>Enviado</span><span class="lg"><i class="dot"></i>Pendiente / en turno</span><span class="lg"><i class="dot noef"></i>No efectivo · Urgencia</span></div></div>`;
+}
+function boxHTML(nave, slot, now){
+  const items=S.cargas.filter(c=>c.nave===nave && c.slot===slot).sort(bySlot);
+  const s=summary(items, now), kind=slot[0], nExp=items.filter(c=>c.explanada).length;
+  const code = slot==='M' ? 'M'+nave : slot==='A' ? 'A' : slot.replace('-C','·Cola');
+  const dts=[...new Set(items.map(c=>c.dt))];
+  const lines=items.slice(0,3).map(c=>{ const st=status(c,now);
+    return `<div class="ml"><i class="dot ${st==='sent'?'sent':st==='noef'?'noef':c.urg?'urg':''}"></i>${esc(c.proj)}</div>`; }).join('');
+  return `<button class="box k-${kind} s-${s.state}" data-act="open" data-nave="${nave}" data-slot="${slot}">
+    ${s.noef?'<span class="flag">NO EFECTIVO</span>':''}
+    <span class="code">${code}</span><span class="lbl">${slot.startsWith('T')&&dts.length?'DT '+esc(dts.join(', ')):slotName(slot)}</span>
+    <span class="met num">${s.n ? `${s.n} obra${s.n>1?'s':''} · ${f1(s.sent)}/${f1(s.tot)} tn` : 'Libre'}</span>
+    ${nExp?`<span class="exp">👉 AVISO: Enviar a Explanada · ${nExp} obra${nExp>1?'s':''}</span>`:''}
+    ${lines}${items.length>3?`<span class="more">+${items.length-3} más</span>`:''}</button>`;
+}
+function naveHTML(n, now){
+  const items=S.cargas.filter(c=>c.nave===n && c.slot && c.slot!=='D'); const s=summary(items,now);
+  const cola=S.cargas.some(c=>c.nave===n && /-C$/.test(c.slot||''));
+  return `<div class="sec-h"><h2>Nave ${n}</h2><span class="num">${f1(s.sent)}/${f1(s.tot)} tn · ${s.pend} pend.</span></div>
+  <div class="panel">
+    <div class="toprow">${boxHTML(n,'A',now)}${boxHTML(n,'M',now)}</div>
+    <div class="th"><div>Turno Mañana<small>00:00 – 12:00</small></div><div>Turno Tarde/Noche<small>12:01 – 23:59</small></div></div>
+    <div class="g2">${boxHTML(n,'U1',now)}${boxHTML(n,'U2',now)}</div><div class="gap"></div>
+    <div class="g2">${boxHTML(n,'T1-1',now)}${boxHTML(n,'T2-1',now)}${boxHTML(n,'T1-2',now)}${boxHTML(n,'T2-2',now)}${boxHTML(n,'T1-3',now)}${boxHTML(n,'T2-3',now)}</div>
+    ${cola?`<div class="gap"></div><div class="g2">${boxHTML(n,'T1-C',now)}${boxHTML(n,'T2-C',now)}</div>`:''}
+  </div>`;
+}
+function nave4HTML(now){
+  const items=S.cargas.filter(c=>c.slot==='D').sort(prio), s=summary(items,now);
+  return `<div class="sec-h"><h2>Nave 4 · Despuntes</h2><span class="num">${f1(s.sent)}/${f1(s.tot)} tn</span></div>
+    <div class="panel"><div class="box k-D s-${s.state}" style="min-height:70px">${s.noef?'<span class="flag">NO EFECTIVO</span>':''}
+      <span class="code">D</span><span class="lbl">Exclusivo Despunte · fuera de la priorización de obras</span>
+      <span class="met num">${s.n?`${s.n} obra${s.n>1?'s':''} · ${s.pend} pendiente${s.pend===1?'':'s'}`:'Libre'}</span></div>
+      <div class="gap"></div>${items.map(c=>cardHTML(c,now,{})).join('')||'<p class="muted">Sin cargas de despunte.</p>'}</div>`;
+}
+function nave5HTML(now){
+  const d=summary(S.cargas.filter(c=>c.slot==='D'),now), xc=xCounts(), nExp=S.cargas.filter(c=>c.explanada).length;
+  const cell=(items,label)=>{ const s=summary(items,now);
+    return `<div class="cell s-${s.state}"><b>${label}</b><span class="num">${f1(s.sent)}/${f1(s.tot)} tn</span><br><small>${s.n?`${s.pend} pend. · ${[...new Set(items.map(c=>c.dt))].length} DT`:'Sin cargas'}${s.noef?` · <b style="display:inline;color:var(--r)">${s.noef} NO EF.</b>`:''}</small></div>`; };
+  const mods=[1,2,3].map(n=>{
+    const items=S.cargas.filter(c=>c.nave===n && c.slot && c.slot!=='D'), s=summary(items,now), pct=s.tot?s.sent/s.tot*100:0;
+    const pend=x=>items.filter(c=>x(c) && !isSent(c)).length, ex=pend(c=>c.explanada);
+    return `<button class="mod" data-act="tab" data-k="${n}">
+      <div class="mod-h"><b>Módulo ${n} · Nave ${n}</b><span class="num">${f1(s.sent)}/${f1(s.tot)} tn · ${pct.toFixed(0)}%</span></div>
+      <div class="prog"><i style="width:${pct.toFixed(1)}%"></i></div>
+      <div class="chips"><span class="chip ${s.urgP?'r':''}">U pend. ${s.urgP}</span><span class="chip">A ${pend(c=>c.slot==='A')}</span>
+        <span class="chip">M ${pend(c=>c.slot==='M')}</span><span class="chip ${s.noef?'r':'g'}">No efectivas ${s.noef}</span><span class="chip ${s.pend?'y':'g'}">${s.pend} pend.</span>${ex?`<span class="chip r">👉 Explanada ${ex}</span>`:''}</div>
+      <div class="g2">${cell(items.filter(c=>/^(U1|T1)/.test(c.slot)),'Turno Mañana')}${cell(items.filter(c=>/^(U2|T2)/.test(c.slot)),'Turno Tarde')}</div>
+    </button>`; }).join('');
+  return `<div class="sec-h"><h2>Nave 5 · Consolidador</h2><span>Toca un módulo para ir a la nave</span></div>
+    <button class="mod" data-act="tab" data-k="4"><div class="mod-h"><b>D · Despuntes (Nave 4)</b><span class="num">${f1(d.sent)}/${f1(d.tot)} tn</span></div>
+      <div class="chips"><span class="chip ${d.pend?'y':'g'}">${d.pend} pend.</span><span class="chip ${d.noef?'r':'g'}">No efectivas ${d.noef}</span></div></button>
+    ${mods}
+    <button class="mod" data-act="tab" data-k="X"><div class="mod-h"><b>Explanada</b><span class="num">${X.at?'Sinc. '+hms(X.at):'Sin sincronizar'}</span></div>
+      <div class="chips"><span class="chip b">Ocupadas ${xc.ocup}</span><span class="chip">Vacías ${xc.vacio}</span><span class="chip k">Bloq. ${xc.bloq}</span><span class="chip">Anuladas ${xc.anulado}</span>${nExp?`<span class="chip r">👉 Por enviar ${nExp}</span>`:''}</div></button>`;
+}
+function cardHTML(c, now, o){
+  const st=status(c,now), sent=st==='sent', v=S.sent[c.key];
+  const sentTxt = sent ? (typeof v==='number' && v>1 ? '✓ Enviado '+hm(new Date(v)) : '✓ Enviado (Excel)') : 'Marcar enviado';
+  const moveable = [1,2,3].includes(c.nave) && c.slot!=='D';
+  const opts = moveable ? `<select class="mv" data-act="move" data-key="${esc(c.key)}" aria-label="Mover a espacio">
+      <option value="">Auto (${esc(c.slot||'-')})</option>${SLOTS_NAVE.map(s=>`<option value="${s}" ${S.moves[c.key]===s?'selected':''}>${s==='M'?'M'+c.nave:s} · ${slotName(s)}</option>`).join('')}</select>` : '';
+  const desp=c.rows.map(r=>r.desp).filter(Boolean), locs=XM.byCarga.get(c.key);
+  const locTxt = X.data ? (locs ? '📍 '+locs.join(' · ó · ') : '📍 Sin posición asignada en la Explanada') : '';
+  return `<div class="card st-${st} ${c.urg?'is-urg':''}">
+    <div class="pills">${o.rank?`<span class="pill rank">#${o.rank}</span>`:''}
+      <span class="pill">DT ${esc(c.dt)}</span>${o.showSlot?`<span class="pill">N${c.nave} · ${esc(c.slot==='M'?'M'+c.nave:c.slot||'—')}</span>`:''}
+      ${c.urg?'<span class="pill ru">URGENTE</span>':`<span class="pill">Crit. ${esc(c.crits.join(', ')||'—')}</span>`}
+      ${st==='noef'?'<span class="pill r">NO EFECTIVO</span>':''}${sent?'<span class="pill g">ENVIADO</span>':''}
+      ${c.why?`<span class="pill v">${esc(c.why)}</span>`:''}</div>
+    ${c.explanada?`<div class="aviso">👉 AVISO: Enviar a Explanada${locTxt?`<small>${esc(locTxt)}</small>`:''}</div>`:''}
+    ${c.client?`<div class="c-cli">${esc(c.client)}</div>`:''}<div class="c-pro">${esc(c.proj)}</div>
+    <div class="c-meta">Prod. <b class="num">${fdt(c.prod)}</b> · Carga <b class="num">${fdt(c.carga)}</b> · ${esc(c.depto)}</div>
+    <div class="c-meta">${desp.length} desp.: ${esc(desp.slice(0,8).join(', '))}${desp.length>8?'…':''} · ${c.pzs.toLocaleString('es-PE')} pzs · ${esc(c.estados.join(' / '))} · ${esc(c.tipos.join(', '))}</div>
+    <div class="c-act"><span class="tn num">${f2(c.peso)} tn</span>${opts}
+      <button class="chk ${sent?'on':''}" data-act="check" data-key="${esc(c.key)}">${sentTxt}</button></div></div>`;
+}
+function listaShellHTML(){
+  const F=[['pend','Pendientes'],['urg','Urgentes'],['noef','No efectivos'],['sent','Enviados'],['all','Todos']];
+  return `<div class="sec-h"><h2>Lista priorizada</h2><span>F. Prev. Prod. → Nave</span></div>
+    <div class="ctrl"><input class="search" id="q" type="search" placeholder="Buscar obra, cliente o DT…" value="${esc(S.q)}">
+    <div class="flt">${F.map(([k,l])=>`<button class="${S.filter===k?'on':''}" data-act="filter" data-k="${k}">${l}</button>`).join('')}</div></div>
+    <div id="lista"></div>`;
+}
+function renderLista(now){
+  const q=norm(S.q);
+  let items=S.cargas.filter(c=>c.slot!=='D').sort(prio);
+  let rank=0; const ranks=new Map(); items.forEach(c=>{ if(!isSent(c)) ranks.set(c.key,++rank); });
+  items=items.filter(c=>{ const st=status(c,now);
+    if(S.filter==='pend' && st==='sent') return false;
+    if(S.filter==='urg' && !(c.urg && st!=='sent')) return false;
+    if(S.filter==='noef' && st!=='noef') return false;
+    if(S.filter==='sent' && st!=='sent') return false;
+    return !q || norm(c.obra+' '+c.dt).includes(q); });
+  const tot=items.reduce((a,c)=>a+c.peso,0);
+  $('#lista').innerHTML = items.length
+    ? `<p class="muted" style="text-align:left;padding:0 2px 8px">${items.length} obras · <span class="num">${f2(tot)}</span> tn</p>`+items.map(c=>cardHTML(c,now,{rank:ranks.get(c.key),showSlot:true})).join('')
+    : '<p class="muted">Sin resultados para este filtro.</p>';
+}
+
+/* ---------- Vista Explanada ---------- */
+function explanadaHTML(now){
+  const d=X.data, k=xCounts(), pend=S.cargas.filter(c=>c.explanada).sort(prio);
+  const st = X.loading ? '<span class="x-st ld">Sincronizando…</span>' : X.error ? `<span class="x-st err">${esc(X.error)}</span>` : X.at ? '<span class="x-st ok">En línea</span>' : '';
+  const meta = d ? `${d.meta.titulo?`<b>${esc(d.meta.titulo)}</b> · `:''}Hoja: <b>${esc(d.meta.fecha||'—')}</b>${d.meta.act?` · Actualizado en hoja: <b>${esc(d.meta.act)}</b>`:''}<br>` : '';
+  return `<div class="sec-h"><h2>Explanada</h2><span>Datos en tiempo real · Google Sheets</span></div>
+  <div class="panel">
+    <div class="x-head"><div class="x-meta">${meta}Sincronizado: <b class="num">${X.at?hms(X.at):'—'}</b>${X.source&&X.source!=='Google Sheets'?` · ${esc(X.source)}`:''} ${st}</div>
+      <div class="x-btns"><button class="btn pri sm" data-act="xsync" ${X.loading?'disabled':''}>⟳ Sincronizar Explanada</button><label class="btn sm" for="xfile">Cargar CSV</label></div></div>
+    ${d?`<div class="chips"><span class="chip b">Ocupadas ${k.ocup}</span><span class="chip">Vacías ${k.vacio}</span><span class="chip k">Bloqueadas ${k.bloq}</span><span class="chip">Anuladas ${k.anulado}</span><span class="chip">${d.filas.length} filas × ${d.cols.length} pos.</span></div>`:''}
+    ${pend.length?`<details class="x-pend" ${pend.length<=5?'open':''}><summary>👉 ${pend.length} carga${pend.length>1?'s':''} NO EFECTIVA${pend.length>1?'S':''} por enviar a Explanada</summary><ul>${pend.map(c=>{ const l=XM.byCarga.get(c.key);
+      return `<li><b>${esc(c.proj)}</b> <span>· N${c.nave} · DT ${esc(c.dt)} · ${f2(c.peso)} tn</span><br>${l?'📍 '+esc(l.join(' · ó · ')):'<span>📍 Sin posición asignada</span>'}</li>`; }).join('')}</ul></details>`:''}
+    ${d?`<div class="gap"></div><input class="search" id="xq" type="search" placeholder="Buscar obra en la Explanada…" value="${esc(S.xq)}">
+      <div class="xscroll"><div class="xgrid" id="xgrid"></div></div>
+      <div class="legend"><span class="lg"><i style="background:#fff"></i>Ocupada</span><span class="lg"><i style="background:#f8fafc;border-style:dashed"></i>Vacío</span>
+        <span class="lg"><i style="background:var(--navy);border-color:var(--navy)"></i>Bloqueada / Reservada</span><span class="lg"><i style="background:#334155;border-color:#334155"></i>Anulado</span>
+        <span class="lg"><i style="box-shadow:0 0 0 2px var(--r-strong);border-color:var(--r-strong)"></i>Obra con carga NO EFECTIVA</span></div>`
+      : `<div class="empty" style="margin-top:12px"><h3>${X.loading?'Sincronizando Explanada…':'Explanada sin datos'}</h3><p>${X.loading?'Consultando la hoja publicada de Google Sheets.':'Pulsa “Sincronizar Explanada” o carga el CSV manualmente si no hay conexión.'}</p></div>`}
+  </div>`;
+}
+function renderXGrid(){
+  const g=$('#xgrid'); if(!g || !X.data) return;
+  const {cols, filas}=X.data, q=norm(S.xq);
+  g.style.gridTemplateColumns=`28px 28px repeat(${cols.length}, minmax(112px,1fr))`;
+  g.style.minWidth=(64+cols.length*116)+'px';
+  g.classList.toggle('searching', !!q);
+  let h=`<div class="xc xh xcorner" style="grid-row:1;grid-column:1 / span 2"></div>`+cols.map((c,i)=>`<div class="xc xh" style="grid-row:1;grid-column:${i+3}">${esc(c.label)}</div>`).join('');
+  let row=2;
+  filas.forEach((f,fi)=>{
+    const n=f.sides.length, mt= fi ? 'margin-top:8px;' : '';
+    h+=`<div class="xc xfl" style="${mt}grid-row:${row} / span ${n};grid-column:1"><span>${esc(f.name)}</span></div>`;
+    f.sides.forEach((s,si)=>{
+      const sm = si===0 ? mt : '';
+      h+=`<div class="xc xsd" style="${sm}grid-row:${row+si};grid-column:2"><span>${s.side}</span></div>`;
+      s.cells.forEach((cell,ci)=>{ if(cell.skip) return;
+        const hits=XM.byCell.get(fi+'-'+si+'-'+ci)||[], nExp=hits.filter(c=>c.explanada).length, tn=hits.reduce((a,c)=>a+c.peso,0);
+        const hit = q && norm(cell.text).includes(q);
+        const label = cell.type==='empty' ? '—' : cell.type==='vacio' ? 'VACÍO' : esc(cell.text);
+        const chip = nExp ? `<span class="xk r">👉 ${nExp} por enviar</span>` : hits.length ? `<span class="xk">Plan ${f1(tn)} tn</span>` : '';
+        h+=`<div class="xc x-${cell.type}${nExp?' xwarn':''}${hit?' xhit':''}" style="${sm}grid-row:${row+si}${cell.span?' / span 2':''};grid-column:${ci+3}" title="${esc(f.name+' · '+s.side+' · '+cols[ci].label)}">${label}${chip}</div>`;
+      });
+    });
+    row+=n;
+  });
+  g.innerHTML=h;
+}
+function renderSheet(now){
+  const sh=$('#sheet');
+  if(!S.sheet){ sh.hidden=true; document.body.style.overflow=''; return; }
+  const {nave,slot}=S.sheet;
+  const items=S.cargas.filter(c=>c.nave===nave && c.slot===slot).sort(bySlot), s=summary(items,now);
+  $('#sheetBody').innerHTML=`<div class="sh-h"><div><b>Nave ${nave} · ${slot==='M'?'M'+nave:slot}</b>
+      <span>${slotName(slot)} · <span class="num">${f1(s.sent)}/${f1(s.tot)} tn</span> · ${s.pend} pend.</span></div>
+      <button class="x" data-act="close" aria-label="Cerrar">✕</button></div>
+    ${items.map(c=>cardHTML(c,now,{})).join('')||'<p class="muted">Espacio libre. Usa "Mover" en la Lista para asignar cargas aquí.</p>'}`;
+  sh.hidden=false; document.body.style.overflow='hidden';
+}
+
+/* ================= ACCIONES ================= */
+function exportar(){
+  if(!S.cargas.length || !window.XLSX){ toast('No hay datos para exportar'); return; }
+  const now=new Date(); assign(now); linkExplanada();
+  const out=[];
+  for(const c of [...S.cargas].sort(prio)) for(const r of c.rows){ const st=status(c,now), v=S.sent[c.key];
+    out.push({'F.Prev. Prod.':r.prod,'F. Prevista Carga':r.carga,'Obra':c.obra,'Nave Carga':c.nave,'Unidad / DT':c.dt,'Departamento':r.depto,
+      'Criticidad':r.crit,'Despacho':r.desp,'Estado Excel':r.estado,'Peso (tn)':r.peso,'Cant. Piezas':r.pzs,'Tipo Producto':r.tipo,
+      'Espacio':c.slot==='M'?'M'+c.nave:c.slot||'','Estado Despacho':st==='sent'?'ENVIADO':st==='noef'?'NO EFECTIVO':'PENDIENTE',
+      'Hora Enviado':typeof v==='number'&&v>1?hms(new Date(v)):(st==='sent'?'Según Excel':''),
+      'Acción':c.explanada?'Enviar a Explanada':'', 'Espacio Original':c.from||'', 'Posición Explanada':(XM.byCarga.get(c.key)||[]).join(' | ')}); }
+  const ws=XLSX.utils.json_to_sheet(out,{dateNF:'dd/mm/yyyy hh:mm'}), wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Despacho');
+  XLSX.writeFile(wb,`Despacho_ACEDIM_${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.xlsx`);
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b) return; const a=b.dataset.act;
+  if(a==='tab'){ S.tab=b.dataset.k; S.sheet=null; save(); render(); window.scrollTo({top:0,behavior:'smooth'}); }
+  else if(a==='open'){ S.sheet={nave:+b.dataset.nave, slot:b.dataset.slot}; render(); }
+  else if(a==='close'){ S.sheet=null; render(); }
+  else if(a==='filter'){ S.filter=b.dataset.k; render(); }
+  else if(a==='xsync'){ if(S.tab!=='X'){ S.tab='X'; save(); } syncExplanada(true); }
+  else if(a==='cloudsync') loadFromCloud();
+  else if(a==='check'){ const c=S.cargas.find(x=>x.key===b.dataset.key); if(!c) return;
+    if(isSent(c)){ if(!confirm('¿Desmarcar "'+c.proj+'" como enviado?')) return; S.sent[c.key]=0; updateCloud(c.dt, {"Estado": "Pendiente"}); }
+    else { S.sent[c.key]=Date.now(); updateCloud(c.dt, {"Estado": "Cargado"}); }
+    touch(); save(); render(); toast(isSent(c)?'Enviado: '+c.proj+' (+'+f2(c.peso)+' tn)':'Marcado como pendiente'); }
+  else if(a==='export') exportar();
+  else if(a==='reset'){ if(S.cargas.length && confirm('¿Borrar el plan cargado y todos los checks?')){ Object.assign(S,{file:'',loadedAt:null,cargas:[],sent:{},moves:{},sheet:null}); save(); render(); } }
+});
+document.addEventListener('change',async e=>{
+  if(e.target.id==='file'){ handleFile(e.target.files[0]); e.target.value=''; return; }
+  if(e.target.id==='xfile'){ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+    try{ loadExplanadaText(await f.text(), 'CSV manual: '+f.name); S.tab='X'; save(); render(); toast('Explanada cargada desde '+f.name); }
+    catch(err){ toast('CSV no válido: '+err.message); } return; }
+  if(e.target.dataset.act==='move'){ const k=e.target.dataset.key, v=e.target.value;
+    const c = S.cargas.find(x=>x.key===k);
+    if(v) S.moves[k]=v; else delete S.moves[k]; touch(); save(); render(); toast(v?'Carga reubicada en '+v:'Asignación automática'); 
+    if(c) updateCloud(c.dt, {"BoxAsignado": v || "Auto"}); }
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='q'){ S.q=e.target.value; renderLista(new Date()); }
+  if(e.target.id==='xq'){ S.xq=e.target.value; renderXGrid(); }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && S.sheet){ S.sheet=null; render(); } });
+
+/* ================= RELOJ EN VIVO ================= */
+function tick(){
+  const now=new Date();
+  $('#clock').textContent=hms(now);
+  $('#fecha').textContent='Control de naves · '+now.toLocaleDateString('es-PE',{weekday:'short',day:'2-digit',month:'2-digit'});
+  if(S.cargas.length && sig(now)!==lastSig) render();   // re-evalúa NO EFECTIVO al pasar las 19:00 y a medianoche
+}
+load(); render(); tick(); setInterval(tick,1000);
+syncExplanada(false);                                   // sincroniza la Explanada al abrir la app
+setInterval(()=>{ if(!document.hidden) syncExplanada(false); }, EXP_AUTO_MIN*60000);
+</script>
+</body>
+</html>

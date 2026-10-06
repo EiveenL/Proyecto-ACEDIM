@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>Priorización de Carga ACEDIM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f1f5f9;--card:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#cbd5e1;--soft:#e2e8f0;
+  --red:#dc2626;--red-bg:#fee2e2;--alert:#dc2626;
+  --amb:#b45309;--amb-bg:#fef3c7;
+  --grn:#15803d;--grn-bg:#dcfce7;
+  --pur:#6d28d9;--gry:#64748b;--gry-bg:#e2e8f0;
+  --acc:#0f172a;--acc-ink:#ffffff;--focus:#2563eb;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0b1220;--card:#131c2e;--ink:#e2e8f0;--muted:#94a3b8;--line:#334155;--soft:#1e293b;
+  --red:#f87171;--red-bg:#3b1414;--alert:#dc2626;
+  --amb:#fbbf24;--amb-bg:#3a2a08;
+  --grn:#4ade80;--grn-bg:#0f2e1a;
+  --pur:#a78bfa;--gry:#94a3b8;--gry-bg:#1e293b;
+  --acc:#e2e8f0;--acc-ink:#0b1220;--focus:#60a5fa;
+}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select{font:inherit;color:inherit}
+button{-webkit-tap-highlight-color:transparent}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
+.hidden{display:none!important}
+.muted{color:var(--muted)}.small{font-size:12px}
+
+/* Header */
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top));background:var(--acc);color:var(--acc-ink)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.logo{font-size:24px}
+.brand h1{font-size:17px;margin:0;line-height:1.2}
+.brand p{margin:0;font-size:12px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62vw}
+main{max-width:1500px;margin:0 auto;padding:12px 16px 100px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 18px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);font-weight:700;cursor:pointer}
+.btn-primary{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.btn-xl{min-height:62px;font-size:18px;width:100%;max-width:380px}
+.btn-ghost{background:transparent;color:inherit;border-color:currentColor;min-height:40px;padding:0 12px;font-size:14px;flex:0 0 auto}
+.btn-sm{min-height:38px;padding:0 12px;font-size:14px}
+
+/* Hero */
+.drop{background:var(--card);border:2px dashed var(--line);border-radius:18px;padding:32px 20px;text-align:center;margin-top:12px}
+.drop.drag{border-color:var(--focus)}
+.drop h2{margin:6px 0}
+.big{font-size:46px}
+.hint{font-size:13px;color:var(--muted)}
+.err{color:var(--red);font-weight:700}
+.warn{background:var(--amb-bg);color:var(--amb);border:1px solid var(--amb);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:600;margin:10px 0}
+
+/* Cards / params */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:12px 0}
+details>summary{cursor:pointer;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+.params>summary,.legend>summary{font-weight:800;min-height:32px;display:flex;align-items:center}
+.pgrid{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:10px;align-items:end}
+.pgrid .full{grid-column:1/-1}
+@media(min-width:760px){.pgrid{grid-template-columns:2fr auto 1fr 1fr}.pgrid .full{grid-column:auto}}
+label.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:700}
+input[type=search],input[type=datetime-local],select{min-height:46px;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);padding:0 10px;font-size:16px;width:100%}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:left}
+button.kpi{cursor:pointer}
+.kpi b{display:block;font-size:22px;line-height:1.15}
+.kpi span{font-size:11.5px;color:var(--muted);font-weight:600}
+.kpi.k0{border:2px solid var(--alert);background:var(--red-bg)}.kpi.k0 b{color:var(--red)}
+.kpi.k1{border:2px solid var(--amb);background:var(--amb-bg)}.kpi.k1 b{color:var(--amb)}
+.kpi.k2{border:2px solid var(--grn);background:var(--grn-bg)}.kpi.k2 b{color:var(--grn)}
+.kpi.on{outline:3px solid var(--focus);outline-offset:2px}
+@media(min-width:900px){.kpis{grid-template-columns:repeat(6,1fr)}}
+
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:20px 0 8px}
+.sec-h h2{font-size:18px;margin:0}
+
+/* Layout naves */
+.jump{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px;padding-bottom:2px}
+.jump button{flex:0 0 auto;min-height:42px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);font-weight:800;font-size:14px;cursor:pointer}
+.jump .r{color:var(--red);margin-left:5px}
+.naves{position:relative;display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 16px 14px;margin:0 -16px;scroll-padding:16px}
+.nv{flex:0 0 min(88vw,370px);min-width:0;overflow:hidden;scroll-snap-align:start;background:var(--card);border:2px dotted var(--ink);border-radius:12px;padding:10px;transition:box-shadow .15s}
+.nv.on{box-shadow:0 0 0 3px var(--focus)}
+@media(min-width:1280px){.nv .plan{grid-template-columns:44px minmax(0,1fr) 40px;gap:6px}.nv .z .zl{font-size:22px;min-width:16px}.naves{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow:visible;margin:0;padding:4px 0 14px}.nv{flex:none}.jump{display:none}}
+.nvh{width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;border:0;background:transparent;padding:4px 2px;text-align:left;cursor:pointer}
+.nvt{font-size:21px;font-weight:800;flex:1 0 auto}
+.nvu{background:var(--alert);color:#fff;border-radius:999px;padding:4px 10px;font-weight:800;font-size:13px}
+.nvu.zero{background:var(--gry-bg);color:var(--muted)}
+.nvs{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:var(--muted);width:100%}
+.nvs b{color:var(--ink)}
+.nvsub{font-size:11.5px;color:var(--muted);padding:0 2px 6px}
+
+.plan{display:grid;grid-template-columns:50px minmax(0,1fr) 54px;gap:8px;margin-top:4px}
+.zA{grid-column:2;grid-row:1}.zM{grid-column:3;grid-row:1}
+.eL{grid-column:1;grid-row:2;align-self:start;margin-top:4px}
+.zU{grid-column:2;grid-row:2}.s1{grid-column:2;grid-row:3}.s2{grid-column:2;grid-row:4}.s3{grid-column:2;grid-row:5}
+.eR{grid-column:3;grid-row:3/5;align-self:center;justify-self:center}
+.eB{grid-column:2;grid-row:6;justify-self:center}
+
+.z{position:relative;display:flex;align-items:center;gap:8px;width:100%;min-height:66px;border:2px solid var(--ink);border-radius:8px;background:var(--card);padding:8px;text-align:left;cursor:pointer}
+.zl{font-size:26px;line-height:1;min-width:22px;text-align:center;color:var(--grn);font-weight:500}
+.zU .zl{color:var(--red)}
+.zM .zl{color:var(--pur);font-weight:800;font-size:19px}
+.zM{justify-content:center}
+.zb{display:flex;flex-direction:column;min-width:0;flex:1}
+.zt{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;min-width:0}
+.zdt{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;max-width:100%}
+.zt .b{font-size:10px;padding:2px 6px}
+.zob{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zm{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zx{font-size:12px;color:var(--muted);font-weight:600}
+.z.lv0{background:var(--red-bg);border-color:var(--alert)}
+.z.lv1{background:var(--amb-bg);border-color:var(--amb)}
+.z.lv2{background:var(--grn-bg);border-color:var(--grn)}
+.z.empty{border-style:dashed;opacity:.75}
+.z.on{outline:3px solid var(--focus);outline-offset:2px}
+.z.zE{min-height:0;width:auto;padding:6px 3px;font-size:8.5px;font-weight:800;color:var(--pur);justify-content:center;border-width:1.5px;letter-spacing:.03em}
+.z.zE.vert{writing-mode:vertical-rl;transform:rotate(180deg);min-height:78px;width:30px;padding:4px 0}
+.cola{font-size:12px;font-weight:700;color:var(--amb);margin-top:8px}
+.plan4{display:flex;justify-content:center;padding:8px 0}
+.z.zD{width:120px;min-height:150px;flex-direction:column;justify-content:center;text-align:center}
+.plan5{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:6px 8px}
+.z.z5{min-height:100px;flex-direction:column;align-items:flex-start}
+.z.z5 .zl{font-size:28px}
+
+.q h4,.rank h4{margin:6px 0;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.qi{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);border-left:5px solid var(--grn);border-radius:10px;background:var(--bg);padding:8px;margin:6px 0;text-align:left;min-height:54px;cursor:pointer}
+.qi.lv0{border-left-color:var(--alert)}.qi.lv1{border-left-color:var(--amb)}
+.qi.on{outline:3px solid var(--focus)}
+
+.rank{margin-top:12px;border-top:1px solid var(--line);padding-top:6px}
+.ro{border:1px solid var(--line);border-left:5px solid var(--grn);border-radius:10px;margin:6px 0;background:var(--bg)}
+.ro.lv0{border-left-color:var(--alert)}.ro.lv1{border-left-color:var(--amb)}
+.ro,.more,.q,.rank{min-width:0}
+.ro>summary{min-width:0;display:flex;align-items:center;gap:10px;padding:9px 10px;min-height:54px}
+.ro[open]>summary{border-bottom:1px dashed var(--line)}
+.pos{flex:0 0 34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;background:var(--acc);color:var(--acc-ink)}
+.pos.p1,.pos.p2{background:var(--soft);color:var(--ink)}
+.pos.p3{background:transparent;border:1.5px solid var(--line);color:var(--muted)}
+.rt{flex:1;min-width:0;display:flex;flex-direction:column}
+.rt b,.rt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rt small{color:var(--muted);font-size:11.5px}
+.rd{padding:8px 10px 10px}
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:12.5px;margin-bottom:8px}
+.chips-s{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.cs{font-size:11px;padding:2px 7px;border-radius:6px;background:var(--grn-bg);color:var(--grn);font-weight:800}
+.cs.lv0{background:var(--red-bg);color:var(--red)}.cs.lv1{background:var(--amb-bg);color:var(--amb)}
+.more>summary{font-size:13px;font-weight:800;color:var(--focus);padding:8px 2px;min-height:42px;display:flex;align-items:center}
+
+/* Badges */
+.b{display:inline-block;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap;letter-spacing:.02em;flex:0 0 auto}
+.b-red{background:var(--alert);color:#fff}
+.b-amb{background:var(--amb-bg);color:var(--amb);border:1px solid var(--amb)}
+.b-grn{background:var(--grn-bg);color:var(--grn);border:1px solid var(--grn)}
+.b-done{background:var(--gry-bg);color:var(--gry)}
+.st{font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:6px;background:var(--soft);white-space:nowrap}
+.st-done{color:var(--gry)}.st-ready{background:var(--grn-bg);color:var(--grn)}.st-proc{background:var(--amb-bg);color:var(--amb)}
+
+/* Filters */
+.f-lbl{font-size:12px;color:var(--muted);font-weight:800;margin:8px 0 4px;text-transform:uppercase;letter-spacing:.05em}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px}
+.chip{flex:0 0 auto;min-height:46px;padding:0 16px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);font-weight:800;cursor:pointer;font-size:14px}
+.chip small{opacity:.65;font-weight:700;margin-left:4px}
+.chip.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.f-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;align-items:end}
+.f-row .full{grid-column:1/-1}
+@media(min-width:760px){.f-row{grid-template-columns:2fr 1fr 1fr auto}.f-row .full{grid-column:auto}}
+.tog{display:flex;align-items:center;gap:10px;min-height:46px;font-size:14px;font-weight:700;cursor:pointer}
+.tog input{width:24px;height:24px;accent-color:var(--focus)}
+#active{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.fchip{min-height:38px;border-radius:999px;border:1.5px solid var(--focus);background:transparent;color:var(--focus);font-weight:800;padding:0 12px;font-size:13px;cursor:pointer}
+.fchip.clr{border-color:var(--line);color:var(--muted)}
+
+/* Table */
+.tw{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{background:var(--soft);text-align:left;font-size:12px;padding:10px 8px;white-space:nowrap}
+.tbl td{padding:9px 8px;border-top:1px solid var(--line);vertical-align:top}
+.tbl tr.lv0 td:first-child{box-shadow:inset 5px 0 var(--alert)}
+.tbl tr.lv1 td:first-child{box-shadow:inset 5px 0 var(--amb)}
+.tbl tr.lv2 td:first-child{box-shadow:inset 5px 0 var(--grn)}
+.tbl tr.lv3 td:first-child{box-shadow:inset 5px 0 var(--gry)}
+.tbl tr.lv3{opacity:.65}
+.c-rank{font-weight:800;color:var(--muted);width:40px;padding-left:12px!important}
+.c-obra b{display:block;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-obra small{display:block;color:var(--muted);font-size:11.5px;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.nw{white-space:nowrap}
+.ov{display:block;color:var(--red);font-weight:800;font-size:11px}
+.ovi{color:var(--red);font-weight:800}
+.only-m{display:none}
+.lnk{border:0;background:none;color:var(--focus);font-weight:800;padding:0;cursor:pointer;text-decoration:underline}
+.morebtn{display:flex;justify-content:center;padding:12px}
+@media(max-width:760px){
+  .tbl thead{display:none}
+  .tbl,.tbl tbody{display:block}
+  .tbl tr{display:grid;grid-template-columns:30px minmax(0,1fr) auto;column-gap:10px;row-gap:3px;padding:10px 12px;border-top:1px solid var(--line)}
+  .tbl tr:first-child{border-top:0}
+  .tbl td{display:block;padding:0!important;border:0}
+  .tbl tr td:first-child{box-shadow:none!important}
+  .tbl tr.lv0{box-shadow:inset 5px 0 var(--alert)}
+  .tbl tr.lv1{box-shadow:inset 5px 0 var(--amb)}
+  .tbl tr.lv2{box-shadow:inset 5px 0 var(--grn)}
+  .tbl tr.lv3{box-shadow:inset 5px 0 var(--gry)}
+  .hide-m{display:none!important}
+  .only-m{display:block}
+  .c-rank{grid-column:1;grid-row:1/4;align-self:center;font-size:15px;width:auto}
+  .c-obra{grid-column:2;grid-row:1}
+  .c-obra b,.c-obra small{max-width:100%}
+  .c-badge{grid-column:3;grid-row:1;justify-self:end}
+  .c-meta{grid-column:2/4;grid-row:2;font-size:12.5px}
+  .c-nums{grid-column:2/4;grid-row:3;font-size:12px;color:var(--muted)}
+}
+
+/* Legend */
+.lg{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13.5px;margin-top:10px}
+.lg b{font-size:15px}
+
+/* Toast / sheet */
+.toast{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:40;max-width:520px;margin:0 auto;background:var(--acc);color:var(--acc-ink);border-radius:14px;padding:10px 10px 10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-size:14px;font-weight:600}
+.toast span{flex:1}
+.toast .btn{min-height:40px;background:var(--acc-ink);color:var(--acc);border:0}
+.sheet{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet-in{background:var(--card);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+.sheet-in h3{margin:0 0 6px}
+.sheet-in .btn{width:100%;margin-top:10px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="logo">▦</span>
+    <div>
+      <h1>Priorización de Carga</h1>
+      <p id="fileInfo">ACEDIM · Sube el Plan Integral (.xlsx)</p>
+    </div>
+  </div>
+  <label class="btn btn-ghost hidden" id="reup">📂 Cambiar<input class="vh" type="file" accept=".xlsx,.xls,.xlsm,.csv"></label>
+</header>
+
+<main>
+  <!-- Pantalla de carga -->
+  <section id="hero">
+    <div class="drop" id="drop">
+      <div class="big">📊</div>
+      <h2>Carga tu Excel de programación</h2>
+      <p class="muted">Detecta automáticamente los encabezados (F. Prev. Prod., Nave Carga, Unidad / DT, Criticidad, Estado…) y prioriza las obras por nave.</p>
+      <label class="btn btn-primary btn-xl" style="margin-bottom:8px">📂 Subir archivo Excel<input class="vh" type="file" accept=".xlsx,.xls,.xlsm,.csv"></label>
+      <button class="btn btn-primary btn-xl" id="btnCloud" style="background:var(--grn);border-color:var(--grn)">☁ Cargar desde Google Sheets</button>
+      <p class="hint">.xlsx · .xls · .csv — el archivo se procesa en tu celular, no se envía a ningún servidor.</p>
+      <p id="err" class="err"></p>
+    </div>
+  </section>
+
+  <div id="app" class="hidden">
+    <div id="warn"></div>
+
+    <details class="card params">
+      <summary>⚙️ Parámetros de priorización</summary>
+      <div class="pgrid">
+        <label class="fld">Hora de referencia (ahora)<input type="datetime-local" id="ref"></label>
+        <button class="btn" data-act="now">Ahora</button>
+        <label class="fld">Ventana prioridad media
+          <select id="win">
+            <option value="2">2 h</option><option value="4">4 h</option><option value="8">8 h</option>
+            <option value="12" selected>12 h</option><option value="24">24 h</option><option value="48">48 h</option>
+          </select>
+        </label>
+        <label class="fld">Asignar box 1·2·3 por
+          <select id="slot">
+            <option value="prio">Prioridad</option>
+            <option value="hora">Hora prevista de carga</option>
+          </select>
+        </label>
+      </div>
+      <p class="muted small">
+        🔴 <b>Alta</b>: Criticidad URG o F. Prev. Prod. vencida respecto a la hora de referencia ·
+        🟡 <b>Media</b>: producción prevista dentro de la ventana ·
+        🟢 <b>Normal</b>: resto.<br>
+        Desempate: URG → F. Prev. Prod. más antigua → Criticidad numérica menor → F. Prevista Carga → N° Despacho.
+        Filas “Cargado” / “Salió planta” se envían al final.
+      </p>
+    </details>
+
+    <section class="kpis" id="kpis"></section>
+
+    <div class="sec-h"><h2>Layout de naves</h2><span class="muted small">Toca una nave o un box para filtrar la tabla</span></div>
+    <div class="jump" id="jump"></div>
+    <div class="naves" id="naves"></div>
+
+    <section class="card" id="filters">
+      <div class="f-lbl">Nave de carga</div>
+      <div class="chips" id="naveChips"></div>
+      <div class="f-lbl">Prioridad</div>
+      <div class="chips" id="lvlChips">
+        <button class="chip" data-act="lvl" data-v="all">Todas</button>
+        <button class="chip" data-act="lvl" data-v="0"><span class="dot" style="background:var(--alert)"></span>Alta</button>
+        <button class="chip" data-act="lvl" data-v="1"><span class="dot" style="background:var(--amb)"></span>Media</button>
+        <button class="chip" data-act="lvl" data-v="2"><span class="dot" style="background:var(--grn)"></span>Normal</button>
+      </div>
+      <div class="f-row">
+        <label class="fld full">Buscar (obra, DT, despacho, estado)<input type="search" id="q" placeholder="Ej. PDK, T-25459, 167…" autocomplete="off"></label>
+        <label class="fld">Departamento<select id="depto"></select></label>
+        <label class="fld">Ordenar por
+          <select id="sort">
+            <option value="prio">Prioridad</option>
+            <option value="fprod">F. Prev. Prod.</option>
+            <option value="fcarga">F. Prevista Carga</option>
+            <option value="peso">Peso (mayor)</option>
+            <option value="nave">Nave</option>
+          </select>
+        </label>
+        <label class="tog full"><input type="checkbox" id="hideDone" checked> Ocultar cargados / salidos</label>
+      </div>
+    </section>
+
+    <section id="listSec">
+      <div class="sec-h"><h2>Listado priorizado</h2><span class="muted small" id="count"></span><button class="btn btn-sm" data-act="export">⬇ Exportar Excel</button></div>
+      <div id="active"></div>
+      <div class="tw">
+        <table class="tbl">
+          <thead><tr>
+            <th>#</th><th>Prioridad</th><th>F. Prev. Prod.</th><th>F. Prev. Carga</th><th>Nave</th><th>Unidad / DT</th>
+            <th>Obra</th><th>Despacho</th><th>Estado</th><th class="num">Peso (t)</th><th class="num">Piezas</th><th>Crit.</th><th>Depto.</th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="morebtn hidden" id="moreWrap"><button class="btn" data-act="more">Mostrar más</button></div>
+      </div>
+    </section>
+
+    <details class="card legend">
+      <summary>ℹ️ Leyenda del layout</summary>
+      <div class="lg">
+        <b style="color:var(--grn)">A</b><span>Espacio libre antes de cargar (muestra los despachos en estado “Fabricado”, listos para cargar).</span>
+        <b style="color:var(--pur)">M</b><span>Espacio para menudeo provisional.</span>
+        <b style="color:var(--red)">U</b><span>Destinado a urgencias: la carga (DT) de prioridad Alta más crítica de la nave.</span>
+        <b style="color:var(--grn)">1·2·3</b><span>Espacio para DT según horario previsto por el líder de despacho (siguientes cargas en orden).</span>
+        <b style="color:var(--pur)">Estribos</b><span>Espacio provisional para menudeo, correlativo a los box y obra asignada.</span>
+        <b style="color:var(--grn)">D</b><span>Despuntes (Nave 4).</span>
+        <b>Nave 5</b><span>1 → Nave 1 · 2 → Nave 2 · 3 → Nave 3 (DT en cola que no entran en los box) · P → Provisional (Nave 5 o filas sin nave).</span>
+      </div>
+    </details>
+  </div>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+<div id="sheet" class="sheet hidden" data-act="closeSheet"><div class="sheet-in" id="sheetIn"></div></div>
+
+<script>
+/* ===================== Utilidades ===================== */
+const $ = s => document.querySelector(s);
+const INF = Number.MAX_SAFE_INTEGER;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fold = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const norm = s => fold(s).replace(/[^a-z0-9]/g, '');
+const pad = n => String(n).padStart(2, '0');
+const LV = {0:'Alta', 1:'Media', 2:'Normal', 3:'Cargado'};
+
+/* Las fechas se manejan como "hora de pared" (ms en UTC) para evitar desfases de zona horaria */
+function nowWall(){ return Math.floor((Date.now() - new Date().getTimezoneOffset()*6e4)/6e4)*6e4; }
+function toWall(v){
+  if (v === '' || v == null) return null;
+  if (typeof v === 'number'){ return (v > 20000 && v < 90000) ? Math.round((v - 25569)*1440)*6e4 : null; }
+  if (v instanceof Date) return Date.UTC(v.getFullYear(), v.getMonth(), v.getDate(), v.getHours(), v.getMinutes());
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/);
+  if (m) return Date.UTC(+m[1], m[2]-1, +m[3], +(m[4]||0), +(m[5]||0));
+  m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})(?:[ ,T]+(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])?)?/i);
+  if (m){
+    let y = +m[3]; if (y < 100) y += 2000;
+    let h = +(m[4]||0); const ap = (m[6]||'').toLowerCase();
+    if (ap === 'p' && h < 12) h += 12; if (ap === 'a' && h === 12) h = 0;
+    return Date.UTC(y, m[2]-1, +m[1], h, +(m[5]||0));
+  }
+  if (/^\d+([.,]\d+)?$/.test(s)) return toWall(parseFloat(s.replace(',', '.')));
+  return null;
+}
+const num = v => { if (typeof v === 'number') return v; const s = String(v ?? '').trim(); if (!s) return null; const n = parseFloat(s.replace(/\s/g,'').replace(',', '.')); return isNaN(n) ? null : n; };
+function fmt(ms){ if (ms == null) return '—'; const d = new Date(ms); return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; }
+function fmtFull(ms){ if (ms == null) return ''; const d = new Date(ms); return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; }
+function hm(ms){ if (ms == null) return '—'; const d = new Date(ms); return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; }
+function fmtT(n){ n = n || 0; return Math.abs(n) < 1 ? n.toFixed(3) : (Math.abs(n) < 100 ? n.toFixed(2) : n.toFixed(1)); }
+function ago(ms){ const m = Math.round((S.ref - ms)/6e4); if (m < 60) return m + ' min'; const h = Math.floor(m/60); return h + 'h ' + pad(m%60) + 'm'; }
+const short = o => { const i = String(o).indexOf('/'); return i >= 0 ? String(o).slice(i+1).trim() : String(o); };
+const client = o => { const i = String(o).indexOf('/'); return i >= 0 ? String(o).slice(0, i).trim() : ''; };
+const mn = (arr, k) => { let m = null; for (const x of arr){ const v = x[k]; if (v != null && (m == null || v < m)) m = v; } return m; };
+
+/* ===================== Estado ===================== */
+const GOOGLE_API_URL = 'https://script.google.com/macros/s/AKfycbz0lVOhv-eENrN2jaT0bVaceP3aQsvzwGIczH3b9z5G2LfeQVSigckZj3ZHhjYBhNs/exec';
+
+const DEF = () => ({nave:'all', lvl:'all', dts:null, label:null, obra:null, ready:false, depto:'all', q:'', hideDone:true});
+const S = {rows:[], file:'', sheet:'', H:12, slotMode:'prio', ref:nowWall(), sort:'prio', limit:200, filter:DEF(), D:{}};
+
+/* ===================== Lectura de Excel ===================== */
+const FIELDS = [
+  ['fprod',  n => /prev.*prod|fechaprod|fprod|produccion|entrega/.test(n)],
+  ['fcarga', n => /prev.*carga|fechacarga|fcarga|horacarga/.test(n)],
+  ['nave',   n => /nave/.test(n)],
+  ['dt',     n => /unidad|^dt|dt$|camion|placa/.test(n)],
+  ['obra',   n => /obra|proyecto|cliente/.test(n)],
+  ['depto',  n => /depart|region|destino|provincia/.test(n)],
+  ['crit',   n => /critic|priori|urgen/.test(n)],
+  ['desp',   n => /despacho|^desp/.test(n)],
+  ['estado', n => /estado|status|situac/.test(n)],
+  ['peso',   n => /peso|tonel|^tn|^kg/.test(n)],
+  ['pzas',   n => /pieza|^cant/.test(n)],
+  ['tipo',   n => /tipo|producto/.test(n)]
+];
+const FNAME = {fprod:'F. Prev. Prod.', fcarga:'F. Prevista Carga', nave:'Nave Carga', dt:'Unidad / DT', obra:'Obra', crit:'Criticidad', estado:'Estado'};
+
+function mapHeaders(row){
+  const m = {};
+  (row || []).forEach((h, i) => {
+    const n = norm(h); if (!n) return;
+    for (const [k, t] of FIELDS){ if (m[k] == null && t(n)){ m[k] = i; break; } }
+  });
+  return m;
+}
+function detect(wb){
+  let best = null;
+  for (const name of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:''});
+    for (let r = 0; r < Math.min(20, aoa.length); r++){
+      const m = mapHeaders(aoa[r]); const sc = Object.keys(m).length;
+      if (!best || sc > best.sc) best = {name, aoa, r, m, sc};
+    }
+  }
+  return best;
+}
+function build(best){
+  const {aoa, r, m} = best, out = [];
+  for (let i = r + 1; i < aoa.length; i++){
+    const a = aoa[i];
+    if (!a || a.every(v => v === '' || v == null)) continue;
+    const g = k => m[k] != null ? a[m[k]] : '';
+    const naveRaw = String(g('nave')).trim();
+    const nd = (naveRaw.match(/\d+/) || [])[0];
+    const crit = String(g('crit')).trim();
+    const estado = String(g('estado')).trim();
+    const x = {
+      id:i, fprod:toWall(g('fprod')), fcarga:toWall(g('fcarga')),
+      obra:String(g('obra')).trim() || '(Sin obra)',
+      naveRaw:naveRaw || 'S/N', nave:(nd && +nd >= 1 && +nd <= 4) ? String(+nd) : '5',
+      dt:String(g('dt')).trim() || '(Sin DT)', depto:String(g('depto')).trim(),
+      crit, critNum:/^\d+(\.\d+)?$/.test(crit) ? +crit : null,
+      urg:/urg|critic|^alta$/i.test(crit),
+      desp:String(g('desp')).trim(), estado,
+      done:/cargad|sali|despachad|entregad|transito|tránsito/i.test(estado),
+      ready:/^fabricad/i.test(estado),
+      peso:num(g('peso')), pzas:num(g('pzas')), tipo:String(g('tipo')).trim()
+    };
+    x._s = fold([x.obra, x.dt, x.desp, x.depto, x.estado, x.naveRaw, x.tipo, x.crit].join(' '));
+    out.push(x);
+  }
+  return out;
+}
+function loadFile(file){
+  if (typeof XLSX === 'undefined'){ showErr('No se pudo cargar la librería de Excel (SheetJS). Revisa tu conexión a internet y recarga la página.'); return; }
+  const rd = new FileReader();
+  rd.onload = e => {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      const best = detect(wb);
+      if (!best || best.sc < 3 || (best.m.obra == null && best.m.dt == null))
+        throw new Error('No reconocí los encabezados. Se esperan columnas como "F. Prev. Prod.", "Nave Carga", "Obra" y "Unidad / DT".');
+      const rows = build(best);
+      if (!rows.length) throw new Error('La hoja no tiene filas de datos.');
+      S.rows = rows; S.file = file.name; S.sheet = best.name;
+      S.filter = DEF(); S.ref = nowWall(); $('#ref').value = toInput(S.ref); $('#q').value = '';
+      const miss = Object.keys(FNAME).filter(k => best.m[k] == null).map(k => FNAME[k]);
+      $('#warn').innerHTML = miss.length ? `<div class="warn">⚠ Columnas no encontradas: ${esc(miss.join(', '))}. La priorización usará solo los datos disponibles.</div>` : '';
+      const deptos = [...new Set(rows.map(r => r.depto).filter(Boolean))].sort();
+      $('#depto').innerHTML = '<option value="all">Todos</option>' + deptos.map(d => `<option>${esc(d)}</option>`).join('');
+      $('#fileInfo').textContent = `${file.name} · hoja “${best.name}” · ${rows.length} filas`;
+      $('#hero').classList.add('hidden'); $('#app').classList.remove('hidden'); $('#reup').classList.remove('hidden');
+      $('#err').textContent = '';
+      render();
+      toastMsg(`✅ ${rows.length} filas cargadas`);
+      window.scrollTo({top:0});
+    } catch (err){ showErr(err.message || String(err)); }
+  };
+  rd.onerror = () => showErr('No se pudo leer el archivo.');
+  rd.readAsArrayBuffer(file);
+}
+
+async function loadFromCloud() {
+  try {
+    toastMsg("⏳ Descargando de Google Sheets...");
+    const res = await fetch(GOOGLE_API_URL + "?sheet=Despachos");
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    const rows = data.map((g, i) => {
+        const naveRaw = String(g['Nave Carga']||'').trim();
+        const nd = (naveRaw.match(/\d+/) || [])[0];
+        const crit = String(g['Criticidad']||'').trim();
+        const estado = String(g['Estado']||'').trim();
+        const x = {
+            id: i, fprod: toWall(g['F.Prev. Prod.']), fcarga: toWall(g['F. Prevista Carga']),
+            obra: String(g['Obra']||'').trim() || '(Sin obra)', naveRaw: naveRaw || 'S/N', 
+            nave: (nd && +nd >= 1 && +nd <= 4) ? String(+nd) : '5',
+            dt: String(g['Unidad / DT']||'').trim() || '(Sin DT)', depto: String(g['Departamento']||'').trim(),
+            crit: crit, critNum: /^\d+(\.\d+)?$/.test(crit) ? +crit : null, urg: /urg|critic|^alta$/i.test(crit),
+            desp: String(g['Despacho']||'').trim(), estado: estado,
+            done: /cargad|sali|despachad|entregad|transito|tránsito/i.test(estado),
+            ready: /^fabricad/i.test(estado), peso: num(g['Peso (tn)']), pzas: num(g['Cant. Piezas']), 
+            tipo: String(g['Tipo Producto']||'').trim()
+        };
+        x._s = fold([x.obra, x.dt, x.desp, x.depto, x.estado, x.naveRaw, x.tipo, x.crit].join(' '));
+        return x;
+    }).filter(r => r.obra !== '(Sin obra)' && r.dt !== '(Sin DT)');
+    
+    if(!rows.length) throw new Error("La hoja está vacía o sin formato.");
+    
+    S.rows = rows; S.file = "☁ Nube (Despachos)"; S.sheet = "Google Sheets";
+    S.filter = DEF(); S.ref = nowWall(); $('#ref').value = toInput(S.ref); $('#q').value = '';
+    const deptos = [...new Set(rows.map(r => r.depto).filter(Boolean))].sort();
+    $('#depto').innerHTML = '<option value="all">Todos</option>' + deptos.map(d => `<option>${esc(d)}</option>`).join('');
+    $('#fileInfo').textContent = `Sincronizado de Nube · ${rows.length} filas`;
+    $('#hero').classList.add('hidden'); $('#app').classList.remove('hidden'); $('#reup').classList.remove('hidden');
+    $('#err').textContent = ''; render(); toastMsg(`✅ ${rows.length} filas sincronizadas de la Nube`); window.scrollTo({top:0});
+  } catch(e) { showErr(e.message); }
+}
+
+document.getElementById('btnCloud').addEventListener('click', loadFromCloud);
+function showErr(msg){ if ($('#app').classList.contains('hidden')) $('#err').textContent = msg; else toastMsg('⚠ ' + msg); }
+const toInput = ms => new Date(ms).toISOString().slice(0, 16);
+
+/* ===================== Motor de priorización ===================== */
+function score(){
+  const now = S.ref, H = S.H * 3600e3;
+  for (const x of S.rows){
+    x.over = x.fprod != null && x.fprod < now;
+    if (x.done) x.lvl = 3;
+    else if (x.urg || x.over) x.lvl = 0;
+    else if (x.fprod != null && x.fprod - now <= H) x.lvl = 1;
+    else x.lvl = 2;
+  }
+}
+function cmp(a, b){
+  return (a.lvl - b.lvl)
+    || ((a.urg ? 0 : 1) - (b.urg ? 0 : 1))
+    || ((a.fprod ?? INF) - (b.fprod ?? INF))
+    || ((a.critNum ?? INF) - (b.critNum ?? INF))
+    || ((a.fcarga ?? INF) - (b.fcarga ?? INF))
+    || String(a.desp ?? '').localeCompare(String(b.desp ?? ''), 'es', {numeric:true});
+}
+function groupBy(rows, keyFn){
+  const mp = new Map();
+  for (const x of rows){
+    const k = keyFn(x); let g = mp.get(k);
+    if (!g){ g = {key:k, rows:[], obras:new Set(), dts:new Set(), peso:0, pzas:0}; mp.set(k, g); }
+    g.rows.push(x); g.obras.add(x.obra); g.dts.add(x.dt); g.peso += x.peso || 0; g.pzas += x.pzas || 0;
+  }
+  const arr = [...mp.values()];
+  for (const g of arr){
+    g.rows.sort(cmp);
+    const act = g.rows.filter(r => !r.done), src = act.length ? act : g.rows;
+    g.done = act.length === 0;
+    g.lvl = g.done ? 3 : Math.min(...act.map(r => r.lvl));
+    g.urg = act.some(r => r.urg); g.over = act.some(r => r.over);
+    g.fprod = mn(src, 'fprod'); g.fcarga = mn(src, 'fcarga'); g.critNum = mn(src, 'critNum');
+    g.desp = src[0].desp;
+  }
+  return arr.sort(cmp);
+}
+function naveData(k){
+  const rows = S.rows.filter(r => r.nave === k), act = rows.filter(r => !r.done);
+  const dts = groupBy(rows, r => r.dt), activeDts = dts.filter(g => !g.done);
+  const obrasAct = groupBy(act, r => r.obra);
+  const q = [...activeDts]; let U = null;
+  if (q.length && q[0].lvl === 0) U = q.shift();
+  if (S.slotMode === 'hora') q.sort((a, b) => ((a.fcarga ?? INF) - (b.fcarga ?? INF)) || cmp(a, b));
+  return {
+    k, rows, act, dts, activeDts, obrasAct, U, slots:q.slice(0, 3), cola:q.slice(3),
+    nAlta:activeDts.filter(g => g.lvl === 0).length, nUrg:activeDts.filter(g => g.urg).length,
+    nOver:activeDts.filter(g => g.over).length, done:dts.length - activeDts.length,
+    peso:act.reduce((s, r) => s + (r.peso || 0), 0), ready:act.filter(r => r.ready)
+  };
+}
+
+/* ===================== Render: KPIs ===================== */
+function renderKpis(){
+  const act = S.rows.filter(r => !r.done), c = [0, 0, 0];
+  act.forEach(r => c[r.lvl]++);
+  const t = act.reduce((s, r) => s + (r.peso || 0), 0);
+  const dts = new Set(act.map(r => r.dt)).size, ob = new Set(act.map(r => r.obra)).size;
+  $('#kpis').innerHTML = `
+    <div class="kpi"><b>${dts}</b><span>Cargas (DT) pendientes</span></div>
+    <div class="kpi"><b>${ob}</b><span>Obras pendientes</span></div>
+    <div class="kpi"><b>${fmtT(t)}</b><span>Toneladas pendientes</span></div>
+    <button class="kpi k0" data-act="lvl" data-v="0"><b>${c[0]}</b><span>🔴 Alta · URG / vencidas</span></button>
+    <button class="kpi k1" data-act="lvl" data-v="1"><b>${c[1]}</b><span>🟡 Media · ≤ ${S.H} h</span></button>
+    <button class="kpi k2" data-act="lvl" data-v="2"><b>${c[2]}</b><span>🟢 Normal</span></button>`;
+}
+
+/* ===================== Render: Layout ===================== */
+function badge(g){
+  if (g.lvl === 3) return '<span class="b b-done">Cargado</span>';
+  if (g.lvl === 0) return `<span class="b b-red">${g.urg ? 'URG' : 'Vencida'}</span>`;
+  if (g.lvl === 1) return '<span class="b b-amb">Media</span>';
+  return '<span class="b b-grn">Normal</span>';
+}
+function navHead(d, title, sub){
+  return `<button class="nvh" data-act="nave" data-v="${d.k}">
+      <span class="nvt">${title}</span>
+      <span class="nvu ${d.nAlta ? '' : 'zero'}">⚠ ${d.nAlta} alta</span>
+      <span class="nvs"><span><b>${d.activeDts.length}</b> cargas</span><span><b>${d.obrasAct.length}</b> obras</span><span><b>${fmtT(d.peso)}</b> t</span></span>
+    </button>
+    <div class="nvsub">${sub || `${d.nUrg} URG · ${d.nOver} vencidas · ${d.done} DT cargadas`}</div>`;
+}
+function zDt(cls, label, g, k){
+  if (!g) return `<button class="z ${cls} empty" data-act="info" data-v="${label === 'U' ? 'U' : 'S'}"><span class="zl">${label}</span><span class="zx">Libre</span></button>`;
+  const ob = [...g.obras];
+  return `<button class="z ${cls} lv${g.lvl}" data-act="dt" data-v="${esc(g.key)}" data-n="${k}">
+      <span class="zl">${label}</span>
+      <span class="zb"><span class="zt"><b class="zdt">${esc(g.key)}</b>${badge(g)}</span>
+        <span class="zob">${esc(short(ob[0]))}${ob.length > 1 ? ` +${ob.length - 1}` : ''}</span>
+        <span class="zm">${fmtT(g.peso)} t · carga ${hm(g.fcarga ?? g.fprod)}</span></span></button>`;
+}
+function rankHtml(d){
+  const ob = d.obrasAct;
+  if (!ob.length) return '<div class="rank"><h4>Prioridad de obras</h4><p class="muted small">Sin obras pendientes</p></div>';
+  const item = (g, i) => `<details class="ro lv${g.lvl}">
+      <summary><span class="pos p${Math.min(i, 3)}">${i + 1}°</span>
+        <span class="rt"><b>${esc(short(g.key))}</b><small>${esc(client(g.key))}</small></span>${badge(g)}</summary>
+      <div class="rd">
+        <div class="rg">
+          <span>Prod.: <b>${fmt(g.fprod)}</b></span><span>Carga: <b>${fmt(g.fcarga)}</b></span>
+          <span><b>${fmtT(g.peso)}</b> t · ${g.pzas} pz</span><span>DT: ${[...g.dts].map(esc).join(', ')}</span>
+        </div>
+        <div class="chips-s">${g.rows.map(r => `<span class="cs lv${r.lvl}">Desp. ${esc(r.desp)}</span>`).join('')}</div>
+        <button class="btn btn-sm" data-act="obra" data-v="${esc(g.key)}" data-n="${d.k}">Ver en tabla →</button>
+      </div></details>`;
+  const rest = ob.slice(3);
+  return `<div class="rank"><h4>Prioridad de obras</h4>${ob.slice(0, 3).map(item).join('')}
+    ${rest.length ? `<details class="more"><summary>Ver ${rest.length} obra${rest.length > 1 ? 's' : ''} más ▾</summary>${rest.map((g, i) => item(g, i + 3)).join('')}</details>` : ''}</div>`;
+}
+const qItem = (g, i, k) => `<button class="qi lv${g.lvl}" data-act="dt" data-v="${esc(g.key)}" data-n="${k}">
+    <span class="pos p${Math.min(i, 3)}">${i + 1}</span>
+    <span class="rt"><b>DT ${esc(g.key)}</b><small>${esc(short([...g.obras][0]))} · ${fmtT(g.peso)} t · ${hm(g.fcarga ?? g.fprod)}</small></span>${badge(g)}</button>`;
+
+function naveStd(d){
+  const k = d.k;
+  return `<article class="nv" id="nv-${k}" data-k="${k}">${navHead(d, 'Nave ' + k)}
+    <div class="plan">
+      <button class="z zA" data-act="ready" data-v="${k}"><span class="zl">A</span><span class="zx">${d.ready.length ? d.ready.length + ' listos p/cargar' : 'Libre'}</span></button>
+      <button class="z zM" data-act="info" data-v="M"><span class="zl">M</span></button>
+      <button class="z zE eL" data-act="info" data-v="E">ESTRIBOS</button>
+      ${zDt('zU', 'U', d.U, k)}
+      ${zDt('s1', '1', d.slots[0], k)}
+      ${zDt('s2', '2', d.slots[1], k)}
+      ${zDt('s3', '3', d.slots[2], k)}
+      <button class="z zE vert eR" data-act="info" data-v="E">ESTRIBOS</button>
+      ${k === '2' ? '<button class="z zE vert eB" data-act="info" data-v="E">ESTRIBOS</button>' : ''}
+    </div>
+    ${d.cola.length ? `<div class="cola">+${d.cola.length} DT en cola → Nave 5 · box ${k}</div>` : ''}
+    ${rankHtml(d)}</article>`;
+}
+function nave4(d){
+  return `<article class="nv" id="nv-4" data-k="4">${navHead(d, 'Nave 4')}
+    <div class="plan4"><button class="z zD" data-act="info" data-v="D"><span class="zl">D</span><span class="zx">Despuntes</span></button></div>
+    <div class="q"><h4>Cargas asignadas</h4>${d.activeDts.map((g, i) => qItem(g, i, '4')).join('') || '<p class="muted small">Sin cargas pendientes</p>'}</div>
+    ${rankHtml(d)}</article>`;
+}
+function nave5(d, D){
+  const box = kk => { const c = D[kk].cola;
+    return `<button class="z z5 ${c.length ? 'lv' + Math.min(...c.map(g => g.lvl)) : 'empty'}" data-act="cola" data-v="${kk}">
+      <span class="zl">${kk}</span><span class="zb"><span class="zob">Cola Nave ${kk}</span><b>${c.length} DT</b>
+      ${c[0] ? `<span class="zm">Sig.: ${esc(c[0].key)}</span>` : ''}</span></button>`; };
+  const p = d.activeDts;
+  return `<article class="nv" id="nv-5" data-k="5">${navHead(d, 'Nave 5', '1·2·3 = cola de Naves 1–3 · P = provisional / sin nave')}
+    <div class="plan5">${box('1')}${box('2')}${box('3')}
+      <button class="z z5 ${p.length ? 'lv' + p[0].lvl : 'empty'}" data-act="nave" data-v="5">
+        <span class="zl">P</span><span class="zb"><span class="zob">Provisional</span><b>${p.length} DT</b>
+        ${p[0] ? `<span class="zm">1°: ${esc(p[0].key)}</span>` : ''}</span></button>
+    </div>
+    ${p.length ? `<div class="q"><h4>Cargas provisionales</h4>${p.map((g, i) => qItem(g, i, '5')).join('')}</div>` : ''}
+    ${rankHtml(d)}</article>`;
+}
+function renderLayout(){
+  const D = {}; ['1', '2', '3', '4', '5'].forEach(k => D[k] = naveData(k)); S.D = D;
+  $('#naves').innerHTML = naveStd(D['1']) + naveStd(D['2']) + naveStd(D['3']) + nave4(D['4']) + nave5(D['5'], D);
+  $('#jump').innerHTML = ['1', '2', '3', '4', '5'].map(k => `<button data-act="jump" data-v="${k}">Nave ${k}${D[k].nAlta ? `<span class="r">⚠${D[k].nAlta}</span>` : ''}</button>`).join('');
+  const all = S.rows.filter(r => !r.done).length;
+  $('#naveChips').innerHTML = [['all', 'Todas', all]].concat(['1', '2', '3', '4', '5'].map(k => [k, k === '5' ? 'Nave 5 / Prov.' : 'Nave ' + k, D[k].act.length]))
+    .map(([v, t, n]) => `<button class="chip" data-act="navef" data-v="${v}">${t}<small>${n}</small></button>`).join('');
+}
+function scrollToNave(k){
+  const el = document.getElementById('nv-' + k), sc = $('#naves');
+  if (el && sc.scrollWidth > sc.clientWidth) sc.scrollTo({left:el.offsetLeft - 16, behavior:'smooth'});
+}
+
+/* ===================== Filtros y tabla ===================== */
+function pass(r){
+  const F = S.filter;
+  if (F.hideDone && r.done) return false;
+  if (F.nave !== 'all' && r.nave !== F.nave) return false;
+  if (F.dts && !F.dts.includes(r.dt)) return false;
+  if (F.obra && r.obra !== F.obra) return false;
+  if (F.ready && !r.ready) return false;
+  if (F.lvl !== 'all' && String(r.lvl) !== F.lvl) return false;
+  if (F.depto !== 'all' && r.depto !== F.depto) return false;
+  if (F.q && !r._s.includes(F.q)) return false;
+  return true;
+}
+function sorter(){
+  switch (S.sort){
+    case 'fprod': return (a, b) => ((a.fprod ?? INF) - (b.fprod ?? INF)) || cmp(a, b);
+    case 'fcarga': return (a, b) => ((a.fcarga ?? INF) - (b.fcarga ?? INF)) || cmp(a, b);
+    case 'peso': return (a, b) => ((b.peso || 0) - (a.peso || 0)) || cmp(a, b);
+    case 'nave': return (a, b) => a.nave.localeCompare(b.nave) || cmp(a, b);
+    default: return cmp;
+  }
+}
+const filtered = () => S.rows.filter(pass).sort(sorter());
+function badgeRow(r){
+  if (r.lvl === 3) return '<span class="b b-done">Cargado</span>';
+  if (r.lvl === 0) return `<span class="b b-red">${r.urg ? 'URG' : 'Vencida'}</span>`;
+  return r.lvl === 1 ? '<span class="b b-amb">Media</span>' : '<span class="b b-grn">Normal</span>';
+}
+function estadoPill(s){
+  const c = /cargad|sali|despachad|entregad|transito/i.test(s) ? 'st-done' : (/^fabricad/i.test(s) ? 'st-ready' : (/fabric/i.test(s) ? 'st-proc' : ''));
+  return s ? `<span class="st ${c}">${esc(s)}</span>` : '';
+}
+function renderTable(){
+  const rows = filtered(), tot = rows.reduce((s, r) => s + (r.peso || 0), 0);
+  $('#count').textContent = `${rows.length} filas · ${fmtT(tot)} t`;
+  $('#tbody').innerHTML = rows.slice(0, S.limit).map((r, i) => {
+    const ov = r.over && !r.done ? `<span class="ovi"> · venc. ${ago(r.fprod)}</span>` : '';
+    return `<tr class="lv${r.lvl}">
+      <td class="c-rank">${i + 1}</td>
+      <td class="c-badge">${badgeRow(r)}</td>
+      <td class="hide-m nw">${fmt(r.fprod)}${r.over && !r.done ? `<small class="ov">venc. ${ago(r.fprod)}</small>` : ''}</td>
+      <td class="hide-m nw">${fmt(r.fcarga)}</td>
+      <td class="hide-m">${esc(r.naveRaw)}</td>
+      <td class="hide-m nw"><button class="lnk" data-act="dt" data-v="${esc(r.dt)}" data-n="${r.nave}">${esc(r.dt)}</button></td>
+      <td class="c-obra"><b>${esc(short(r.obra))}</b><small>${esc(client(r.obra))}</small></td>
+      <td class="hide-m">${esc(r.desp)}</td>
+      <td class="hide-m">${estadoPill(r.estado)}</td>
+      <td class="hide-m num">${r.peso != null ? fmtT(r.peso) : ''}</td>
+      <td class="hide-m num">${r.pzas ?? ''}</td>
+      <td class="hide-m">${esc(r.crit)}</td>
+      <td class="hide-m">${esc(r.depto)}</td>
+      <td class="only-m c-meta">N${esc(r.naveRaw)} · DT <button class="lnk" data-act="dt" data-v="${esc(r.dt)}" data-n="${r.nave}">${esc(r.dt)}</button> · Desp. ${esc(r.desp)} · ${estadoPill(r.estado)}</td>
+      <td class="only-m c-nums">Prod ${fmt(r.fprod)}${ov} · Carga ${fmt(r.fcarga)} · ${r.peso != null ? fmtT(r.peso) : '—'} t · ${r.pzas ?? '—'} pz${r.depto ? ' · ' + esc(r.depto) : ''}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="13" class="muted" style="padding:20px;text-align:center">Sin filas para este filtro</td></tr>';
+  $('#moreWrap').classList.toggle('hidden', rows.length <= S.limit);
+  return rows.length;
+}
+function renderActive(){
+  const F = S.filter, c = [];
+  if (F.nave !== 'all') c.push(['nave', F.nave === '5' ? 'Nave 5 / Provisional' : 'Nave ' + F.nave]);
+  if (F.dts) c.push(['dts', F.label || 'DT ' + F.dts.join(', ')]);
+  if (F.obra) c.push(['obra', 'Obra: ' + short(F.obra)]);
+  if (F.ready) c.push(['ready', 'Listos (Fabricado)']);
+  if (F.lvl !== 'all') c.push(['lvl', 'Prioridad ' + LV[F.lvl]]);
+  if (F.depto !== 'all') c.push(['depto', F.depto]);
+  if (F.q) c.push(['q', '“' + $('#q').value.trim() + '”']);
+  $('#active').innerHTML = c.length ? c.map(([k, t]) => `<button class="fchip" data-act="rm" data-v="${k}">${esc(t)} ✕</button>`).join('') + '<button class="fchip clr" data-act="clear">Limpiar todo</button>' : '';
+}
+function highlight(){
+  const F = S.filter, one = F.dts && F.dts.length === 1 ? F.dts[0] : null;
+  document.querySelectorAll('.nv').forEach(el => el.classList.toggle('on', el.dataset.k === F.nave));
+  document.querySelectorAll('[data-act="dt"]').forEach(el => el.classList.toggle('on', one !== null && el.dataset.v === one));
+  document.querySelectorAll('[data-act="navef"]').forEach(b => b.classList.toggle('on', b.dataset.v === F.nave));
+  document.querySelectorAll('#lvlChips [data-act="lvl"]').forEach(b => b.classList.toggle('on', b.dataset.v === F.lvl));
+  document.querySelectorAll('.kpi[data-act="lvl"]').forEach(b => b.classList.toggle('on', b.dataset.v === F.lvl));
+  $('#depto').value = F.depto; $('#hideDone').checked = F.hideDone;
+}
+function apply(withToast){
+  S.limit = 200; highlight(); renderActive();
+  const n = renderTable();
+  if (withToast) toastList(n);
+}
+function render(){ score(); renderKpis(); renderLayout(); apply(false); }
+function clearSub(){ const F = S.filter; F.dts = null; F.label = null; F.obra = null; F.ready = false; }
+
+/* ===================== Toast / hoja informativa ===================== */
+let tt = null;
+function toastShow(html, ms){ const t = $('#toast'); t.innerHTML = html; t.classList.remove('hidden'); clearTimeout(tt); tt = setTimeout(() => t.classList.add('hidden'), ms || 4500); }
+const toastMsg = m => toastShow(`<span>${esc(m)}</span>`, 3000);
+const toastList = n => toastShow(`<span>${n} fila${n === 1 ? '' : 's'} filtrada${n === 1 ? '' : 's'}</span><button class="btn btn-sm" data-act="goList">Ver lista ↓</button>`);
+const INFO = {
+  M:['M · Menudeo provisional', 'Espacio para menudeo provisional.'],
+  E:['Estribos', 'Espacio provisional para menudeo que será correlativo a los box y obra asignada.'],
+  D:['D · Despuntes', 'Zona de despuntes de la Nave 4.'],
+  U:['U · Urgencias', 'Destinado a urgencias. Se ocupa con la carga (DT) de prioridad Alta más crítica de la nave. Ahora está libre.'],
+  S:['Box 1 · 2 · 3', 'Espacio para DT según horario previsto por el líder de despacho. Ahora está libre.']
+};
+function openSheet(k){ const [t, d] = INFO[k] || ['Info', '']; $('#sheetIn').innerHTML = `<h3>${t}</h3><p>${d}</p><button class="btn btn-primary" data-act="closeSheet">Entendido</button>`; $('#sheet').classList.remove('hidden'); }
+
+/* ===================== Exportar ===================== */
+function exportXlsx(){
+  if (typeof XLSX === 'undefined') return;
+  const data = filtered().map((r, i) => ({
+    '#':i + 1, 'Prioridad':LV[r.lvl] + (r.lvl === 0 ? (r.urg ? ' (URG)' : ' (Vencida)') : ''),
+    'F. Prev. Prod.':fmtFull(r.fprod), 'F. Prevista Carga':fmtFull(r.fcarga), 'Nave Carga':r.naveRaw,
+    'Unidad / DT':r.dt, 'Obra':r.obra, 'Despacho':r.desp, 'Estado':r.estado, 'Peso (tn)':r.peso,
+    'Cant. Piezas':r.pzas, 'Criticidad':r.crit, 'Departamento':r.depto, 'Tipo Producto':r.tipo
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Priorizado');
+  const d = new Date(S.ref);
+  XLSX.writeFile(wb, `Priorizado_${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}_${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}.xlsx`);
+}
+
+/* ===================== Eventos ===================== */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const a = t.dataset.act, v = t.dataset.v, n = t.dataset.n, F = S.filter;
+  if (a === 'closeSheet'){ if (e.target === t || t.tagName === 'BUTTON') $('#sheet').classList.add('hidden'); return; }
+  switch (a){
+    case 'nave':
+      if (F.nave === v && !F.dts && !F.obra && !F.ready) F.nave = 'all'; else { clearSub(); F.nave = v; }
+      apply(true); break;
+    case 'navef': clearSub(); F.nave = v; apply(false); if (v !== 'all') scrollToNave(v); break;
+    case 'dt':
+      if (F.dts && F.dts.length === 1 && F.dts[0] === v){ clearSub(); }
+      else { clearSub(); F.nave = n || F.nave; F.dts = [v]; F.label = 'DT ' + v; }
+      apply(true); break;
+    case 'cola': {
+      const c = (S.D[v] || {cola:[]}).cola;
+      if (!c.length){ toastMsg(`Sin DT en cola para Nave ${v}`); break; }
+      clearSub(); F.nave = v; F.dts = c.map(g => g.key); F.label = `Cola Nave ${v} (${c.length} DT)`; apply(true); break; }
+    case 'obra': clearSub(); F.nave = n || 'all'; F.obra = v; apply(true); break;
+    case 'ready': clearSub(); F.nave = v; F.ready = true; apply(true); break;
+    case 'lvl': F.lvl = (F.lvl === v && v !== 'all') ? 'all' : v; apply(t.classList.contains('kpi')); break;
+    case 'rm':
+      if (v === 'nave') F.nave = 'all';
+      if (v === 'dts'){ F.dts = null; F.label = null; }
+      if (v === 'obra') F.obra = null;
+      if (v === 'ready') F.ready = false;
+      if (v === 'lvl') F.lvl = 'all';
+      if (v === 'depto') F.depto = 'all';
+      if (v === 'q'){ F.q = ''; $('#q').value = ''; }
+      apply(false); break;
+    case 'clear': { const hd = F.hideDone; S.filter = DEF(); S.filter.hideDone = hd; $('#q').value = ''; apply(false); break; }
+    case 'info': openSheet(v); break;
+    case 'goList': $('#toast').classList.add('hidden'); $('#listSec').scrollIntoView({behavior:'smooth', block:'start'}); break;
+    case 'jump': scrollToNave(v); break;
+    case 'now': S.ref = nowWall(); $('#ref').value = toInput(S.ref); render(); toastMsg('Hora de referencia actualizada'); break;
+    case 'more': S.limit += 200; renderTable(); break;
+    case 'export': exportXlsx(); break;
+  }
+});
+document.querySelectorAll('input[type=file]').forEach(inp => inp.addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if (f) loadFile(f); e.target.value = '';
+}));
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+drop.addEventListener('drop', e => { const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) loadFile(f); });
+
+let qt = null;
+$('#q').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { S.filter.q = fold(e.target.value.trim()); apply(false); }, 200); });
+$('#depto').addEventListener('change', e => { S.filter.depto = e.target.value; apply(false); });
+$('#sort').addEventListener('change', e => { S.sort = e.target.value; apply(false); });
+$('#hideDone').addEventListener('change', e => { S.filter.hideDone = e.target.checked; apply(false); });
+$('#ref').addEventListener('change', e => { const ms = Date.parse(e.target.value + 'Z'); if (!isNaN(ms)){ S.ref = ms; render(); } });
+$('#win').addEventListener('change', e => { S.H = +e.target.value; render(); });
+$('#slot').addEventListener('change', e => { S.slotMode = e.target.value; renderLayout(); highlight(); });
+$('#ref').value = toInput(S.ref);
+</script>
+</body>
+</html>
